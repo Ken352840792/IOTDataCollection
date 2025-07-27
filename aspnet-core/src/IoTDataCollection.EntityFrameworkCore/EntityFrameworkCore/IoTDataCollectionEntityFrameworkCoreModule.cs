@@ -50,5 +50,8 @@ public class IoTDataCollectionEntityFrameworkCoreModule : AbpModule
             options.UseMySQL();
         });
 
+        // 注册InfluxDB时序数据仓储
+        context.Services.AddTransient<IoTDataCollection.TimeSeriesData.ITimeSeriesRepository, 
+            EntityFrameworkCore.TimeSeriesData.InfluxDbTimeSeriesRepository>();
     }
 }
