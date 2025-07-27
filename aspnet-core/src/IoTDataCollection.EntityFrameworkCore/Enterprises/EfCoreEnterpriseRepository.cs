@@ -96,8 +96,8 @@ public class EfCoreEnterpriseRepository : EfCoreRepository<IoTDataCollectionDbCo
                 !filter.IsNullOrWhiteSpace(),
                 e => e.F_EnterpriseName.Contains(filter!) ||
                      e.F_EnterpriseCode.Contains(filter!) ||
-                     e.F_ShortName!.Contains(filter!) ||
-                     e.F_Description!.Contains(filter!)
+                     (e.F_ShortName != null && e.F_ShortName.Contains(filter!)) ||
+                     (e.F_Description != null && e.F_Description.Contains(filter!))
             );
     }
 } 
