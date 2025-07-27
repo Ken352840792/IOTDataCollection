@@ -83,12 +83,13 @@ public class DevicesController : AbpControllerBase, IDeviceAppService
     /// <summary>
     /// 根据设备编码获取设备
     /// </summary>
+    /// <param name="siteId">站点ID</param>
     /// <param name="deviceCode">设备编码</param>
     /// <returns>设备信息</returns>
-    [HttpGet("by-code/{deviceCode}")]
-    public virtual Task<DeviceDto?> FindByCodeAsync(string deviceCode)
+    [HttpGet("by-code/{siteId}/{deviceCode}")]
+    public virtual Task<DeviceDto?> FindByCodeAsync(Guid siteId, string deviceCode)
     {
-        return _deviceAppService.FindByCodeAsync(deviceCode);
+        return _deviceAppService.FindByCodeAsync(siteId, deviceCode);
     }
 
     /// <summary>
@@ -128,13 +129,14 @@ public class DevicesController : AbpControllerBase, IDeviceAppService
     /// <summary>
     /// 检查设备编码是否已存在
     /// </summary>
+    /// <param name="siteId">站点ID</param>
     /// <param name="deviceCode">设备编码</param>
     /// <param name="excludeId">排除的设备ID</param>
     /// <returns>是否存在</returns>
     [HttpGet("check-code")]
-    public virtual Task<bool> IsCodeExistAsync(string deviceCode, Guid? excludeId = null)
+    public virtual Task<bool> IsCodeExistAsync([FromQuery] Guid siteId, [FromQuery] string deviceCode, [FromQuery] Guid? excludeId = null)
     {
-        return _deviceAppService.IsCodeExistAsync(deviceCode, excludeId);
+        return _deviceAppService.IsCodeExistAsync(siteId, deviceCode, excludeId);
     }
 
     /// <summary>

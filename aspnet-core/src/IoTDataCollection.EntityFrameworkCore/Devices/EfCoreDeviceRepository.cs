@@ -22,12 +22,13 @@ public class EfCoreDeviceRepository : EfCoreRepository<IoTDataCollectionDbContex
     }
 
     public async Task<Device?> FindByCodeAsync(
+        Guid siteId,
         string deviceCode, 
         bool includeDetails = true, 
         CancellationToken cancellationToken = default)
     {
         return await (await GetQueryableAsync())
-            .Where(x => x.F_DeviceCode == deviceCode)
+            .Where(x => x.F_SiteId == siteId && x.F_DeviceCode == deviceCode)
             .FirstOrDefaultAsync(GetCancellationToken(cancellationToken));
     }
 
@@ -56,12 +57,16 @@ public class EfCoreDeviceRepository : EfCoreRepository<IoTDataCollectionDbContex
         int maxResultCount = int.MaxValue, 
         string sorting = "F_SortOrder", 
         string? filter = null, 
+        Guid? siteId = null,
+        int? connectionStatus = null,
+        bool? isCollectionEnabled = null,
         bool includeDetails = false, 
         CancellationToken cancellationToken = default)
     {
         var query = await GetQueryableAsync();
         
         query = ApplyFilter(query, filter);
+        query = ApplyDetailedFilter(query, siteId, connectionStatus: connectionStatus, isCollectionEnabled: isCollectionEnabled);
         
         return await query
             .OrderBy(sorting.IsNullOrWhiteSpace() ? "F_SortOrder" : sorting)
@@ -102,24 +107,29 @@ public class EfCoreDeviceRepository : EfCoreRepository<IoTDataCollectionDbContex
     }
 
     public async Task<long> GetCountAsync(
-        string? filter = null, 
+        string? filter = null,
+        Guid? siteId = null,
+        int? connectionStatus = null,
+        bool? isCollectionEnabled = null,
         CancellationToken cancellationToken = default)
     {
         var query = await GetQueryableAsync();
         
         query = ApplyFilter(query, filter);
+        query = ApplyDetailedFilter(query, siteId, connectionStatus: connectionStatus, isCollectionEnabled: isCollectionEnabled);
         
         return await query.CountAsync(GetCancellationToken(cancellationToken));
     }
 
     public async Task<bool> IsCodeExistAsync(
+        Guid siteId,
         string deviceCode, 
         Guid? excludeId = null, 
         CancellationToken cancellationToken = default)
     {
         var query = await GetQueryableAsync();
         
-        query = query.Where(x => x.F_DeviceCode == deviceCode);
+        query = query.Where(x => x.F_SiteId == siteId && x.F_DeviceCode == deviceCode);
         
         if (excludeId.HasValue)
         {

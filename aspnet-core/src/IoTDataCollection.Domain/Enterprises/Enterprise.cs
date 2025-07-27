@@ -76,6 +76,12 @@ public class Enterprise : FullAuditedAggregateRoot<Guid>
     public int F_Status { get; set; } = 1;
 
     /// <summary>
+    /// 是否启用 - true:启用 false:禁用
+    /// </summary>
+    [Column("F_IS_ENABLED")]
+    public bool F_IsEnabled { get; set; } = true;
+
+    /// <summary>
     /// 排序号
     /// </summary>
     [Column("F_SORT_ORDER")]
@@ -141,6 +147,7 @@ public class Enterprise : FullAuditedAggregateRoot<Guid>
         F_ShortName = shortName;
         F_EnterpriseType = enterpriseType;
         F_Status = 1;
+        F_IsEnabled = true;
         F_SortOrder = 0;
     }
 } 

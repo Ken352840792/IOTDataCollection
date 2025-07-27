@@ -67,7 +67,7 @@ public class DeviceAppService : CrudAppService<
     public override async Task<DeviceDto> CreateAsync(CreateDeviceDto input)
     {
         // 检查设备编码唯一性
-        if (await _deviceRepository.IsCodeExistAsync(input.DeviceCode))
+        if (await _deviceRepository.IsCodeExistAsync(input.SiteId, input.DeviceCode))
         {
             throw new Volo.Abp.UserFriendlyException($"设备编码 '{input.DeviceCode}' 已存在，请使用其他编码。");
         }
@@ -79,7 +79,7 @@ public class DeviceAppService : CrudAppService<
     public override async Task<DeviceDto> UpdateAsync(Guid id, UpdateDeviceDto input)
     {
         // 检查设备编码唯一性
-        if (await _deviceRepository.IsCodeExistAsync(input.DeviceCode, id))
+        if (await _deviceRepository.IsCodeExistAsync(input.SiteId, input.DeviceCode, id))
         {
             throw new Volo.Abp.UserFriendlyException($"设备编码 '{input.DeviceCode}' 已存在，请使用其他编码。");
         }
@@ -87,9 +87,9 @@ public class DeviceAppService : CrudAppService<
         return await base.UpdateAsync(id, input);
     }
 
-    public async Task<DeviceDto?> FindByCodeAsync(string deviceCode)
+    public async Task<DeviceDto?> FindByCodeAsync(Guid siteId, string deviceCode)
     {
-        var device = await _deviceRepository.FindByCodeAsync(deviceCode);
+        var device = await _deviceRepository.FindByCodeAsync(siteId, deviceCode);
         return device != null ? await MapToGetOutputDtoAsync(device) : null;
     }
 
@@ -140,9 +140,9 @@ public class DeviceAppService : CrudAppService<
         return new PagedResultDto<DeviceDto>(totalCount, deviceDtos);
     }
 
-    public async Task<bool> IsCodeExistAsync(string deviceCode, Guid? excludeId = null)
+    public async Task<bool> IsCodeExistAsync(Guid siteId, string deviceCode, Guid? excludeId = null)
     {
-        return await _deviceRepository.IsCodeExistAsync(deviceCode, excludeId);
+        return await _deviceRepository.IsCodeExistAsync(siteId, deviceCode, excludeId);
     }
 
     [Authorize(IoTDataCollectionPermissions.Devices.Edit)]

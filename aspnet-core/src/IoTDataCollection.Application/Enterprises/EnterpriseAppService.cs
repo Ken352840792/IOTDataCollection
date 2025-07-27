@@ -56,7 +56,7 @@ public class EnterpriseAppService : CrudAppService<
 
     public override async Task<EnterpriseDto> CreateAsync(CreateEnterpriseDto input)
     {
-        await CheckCreatePermissionAsync();
+        await CheckPolicyAsync(IoTDataCollectionPermissions.Enterprises.Create);
 
         // 检查企业编码是否已存在
         if (await _enterpriseRepository.IsCodeExistAsync(input.EnterpriseCode))
@@ -87,7 +87,7 @@ public class EnterpriseAppService : CrudAppService<
 
     public override async Task<EnterpriseDto> UpdateAsync(Guid id, UpdateEnterpriseDto input)
     {
-        await CheckUpdatePermissionAsync();
+        await CheckPolicyAsync(IoTDataCollectionPermissions.Enterprises.Edit);
 
         var enterprise = await _enterpriseRepository.GetAsync(id);
 

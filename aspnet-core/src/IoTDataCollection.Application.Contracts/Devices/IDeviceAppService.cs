@@ -19,9 +19,10 @@ public interface IDeviceAppService : ICrudAppService<
     /// <summary>
     /// 根据设备编码查找设备
     /// </summary>
+    /// <param name="siteId">站点ID</param>
     /// <param name="deviceCode">设备编码</param>
     /// <returns>设备信息</returns>
-    Task<DeviceDto?> FindByCodeAsync(string deviceCode);
+    Task<DeviceDto?> FindByCodeAsync(Guid siteId, string deviceCode);
 
     /// <summary>
     /// 获取指定站点下的设备列表
@@ -48,10 +49,11 @@ public interface IDeviceAppService : ICrudAppService<
     /// <summary>
     /// 检查设备编码是否已存在
     /// </summary>
+    /// <param name="siteId">站点ID</param>
     /// <param name="deviceCode">设备编码</param>
     /// <param name="excludeId">排除的设备ID</param>
     /// <returns>是否存在</returns>
-    Task<bool> IsCodeExistAsync(string deviceCode, Guid? excludeId = null);
+    Task<bool> IsCodeExistAsync(Guid siteId, string deviceCode, Guid? excludeId = null);
 
     /// <summary>
     /// 启用设备
