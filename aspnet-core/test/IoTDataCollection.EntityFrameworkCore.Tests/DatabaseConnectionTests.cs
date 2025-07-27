@@ -114,27 +114,31 @@ public class DatabaseConnectionTests : IoTDataCollectionEntityFrameworkCoreTestB
         var redisConnectionString = _configuration.GetConnectionString("Redis") ?? 
                                   _configuration["Redis:Configuration"];
         var influxDbOrganization = _configuration["InfluxDB:Organization"];
-        var influxDbBucket = _configuration["InfluxDB:Bucket"];
+        var influxDbBusinessBucket = _configuration["InfluxDB:BusinessBucket"];
+        var influxDbMonitoringBucket = _configuration["InfluxDB:MonitoringBucket"];
 
         // Assert - 验证配置项不为空
         Assert.NotNull(mySqlConnectionString);
         Assert.NotNull(influxDbConnectionString);
         Assert.NotNull(redisConnectionString);
         Assert.NotNull(influxDbOrganization);
-        Assert.NotNull(influxDbBucket);
+        Assert.NotNull(influxDbBusinessBucket);
+        Assert.NotNull(influxDbMonitoringBucket);
 
         // 验证配置项不为空字符串
         Assert.NotEmpty(mySqlConnectionString);
         Assert.NotEmpty(influxDbConnectionString);
         Assert.NotEmpty(redisConnectionString);
         Assert.NotEmpty(influxDbOrganization);
-        Assert.NotEmpty(influxDbBucket);
+        Assert.NotEmpty(influxDbBusinessBucket);
+        Assert.NotEmpty(influxDbMonitoringBucket);
 
         _logger.LogInformation("数据库配置信息验证成功");
         _logger.LogInformation("MySQL: {MySql}", mySqlConnectionString);
         _logger.LogInformation("InfluxDB: {InfluxDb}", influxDbConnectionString);
         _logger.LogInformation("Redis: {Redis}", redisConnectionString);
-        _logger.LogInformation("InfluxDB Org: {Org}, Bucket: {Bucket}", influxDbOrganization, influxDbBucket);
+        _logger.LogInformation("InfluxDB Org: {Org}, BusinessBucket: {BusinessBucket}, MonitoringBucket: {MonitoringBucket}", 
+            influxDbOrganization, influxDbBusinessBucket, influxDbMonitoringBucket);
     }
 
     [Fact]
@@ -214,8 +218,8 @@ public class DatabaseConnectionTests : IoTDataCollectionEntityFrameworkCoreTestB
             // Arrange & Act
             await _timeSeriesRepository.EnsureDatabaseAsync();
 
-            // Assert - 如果执行到这里没有异常，说明数据库和Bucket创建成功
-            _logger.LogInformation("InfluxDB数据库初始化测试成功");
+                           // Assert - 如果执行到这里没有异常，说明数据库和Bucket创建成功
+               _logger.LogInformation("InfluxDB数据库初始化测试成功，已创建业务数据Bucket和监控数据Bucket");
         }
         catch (Exception ex)
         {
@@ -261,13 +265,13 @@ public class DatabaseConnectionTests : IoTDataCollectionEntityFrameworkCoreTestB
             Assert.NotEmpty(dataPoints);
             Assert.Contains(dataPoints, dp => dp.DeviceCode == deviceCode && dp.PointCode == pointCode);
             
-            _logger.LogInformation("InfluxDB Bucket验证测试成功，写入并查询到 {Count} 条记录", dataPoints.Count);
+                           _logger.LogInformation("InfluxDB业务数据Bucket验证测试成功，写入并查询到 {Count} 条记录", dataPoints.Count);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "InfluxDB Bucket验证测试失败，可能是InfluxDB服务未启动");
-            // 在测试环境中，如果InfluxDB未启动，我们跳过这个测试而不是失败
-            Assert.True(true, "InfluxDB Bucket验证测试跳过（服务可能未启动）");
+                           _logger.LogWarning(ex, "InfluxDB业务数据Bucket验证测试失败，可能是InfluxDB服务未启动");
+               // 在测试环境中，如果InfluxDB未启动，我们跳过这个测试而不是失败
+               Assert.True(true, "InfluxDB业务数据Bucket验证测试跳过（服务可能未启动）");
         }
     }
 } 

@@ -1880,7 +1880,34 @@ public class NanoMQClient : IMQTTClient
 - **阻碍因素**: 无
 - **状态**: 成功 ✅
 
-**当前状态**: 任务4完全完成，InfluxDB初始化功能验证成功，所有测试通过，准备继续任务5
+## [2025-01-14 24:00:00] 中心系统MQTT消息接收服务完成
+- **已完成**: 
+  - ✅ 创建数据采集消息处理服务接口和实现（IDataCollectionMessageHandler + DataCollectionMessageHandler）
+  - ✅ 创建MQTT消息订阅服务（DataCollectionMessageSubscriptionService）
+  - ✅ 添加MQTT客户端依赖包（MQTTnet, Newtonsoft.Json）
+  - ✅ 配置MQTT服务注册和选项
+  - ✅ 实现设备数据消息和采集端状态消息处理
+  - ✅ 添加自动重连和错误处理机制
+  - ✅ 构建验证成功
+- **变更**: 完成中心系统的MQTT消息接收服务，能够接收和处理采集端发送的数据
+- **原因**: 实施任务5的数据采集服务集成
+- **阻碍因素**: 无
+- **状态**: 成功 ✅
+
+## [2025-01-15 00:30:00] InfluxDB分离存储架构完成
+- **已完成**: 
+  - ✅ 更新配置文件支持多bucket（BusinessBucket, MonitoringBucket）
+  - ✅ 重构InfluxDB初始化服务支持多bucket创建
+  - ✅ 重构时序数据仓储支持数据路由（业务数据→iot_data_business，监控数据→iot_data_monitoring）
+  - ✅ 更新数据库管理方法（EnsureDatabaseAsync, DeleteExpiredDataAsync）
+  - ✅ 修复测试配置和测试用例
+  - ✅ 构建验证成功，所有测试通过（12个测试全部成功）
+- **变更**: 完成InfluxDB分离存储架构，业务数据和监控数据分别存储到不同bucket，提高数据管理效率
+- **原因**: 用户要求分开存储，优化数据管理和查询性能
+- **阻碍因素**: 无
+- **状态**: 成功 ✅
+
+**当前状态**: InfluxDB分离存储架构完成，准备继续实施采集端应用程序
 
 # 最终审查
 [完成后的总结将在此处记录] 

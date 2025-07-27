@@ -18,8 +18,9 @@ public class InfluxDbInitializationService : IInfluxDbInitializationService, ITr
     private readonly ILogger<InfluxDbInitializationService> _logger;
     private readonly IConfiguration _configuration;
     private readonly InfluxDBClient _influxDbClient;
-    private readonly string _organization;
-    private readonly string _bucket;
+               private readonly string _organization;
+           private readonly string _businessBucket;
+           private readonly string _monitoringBucket;
 
     public InfluxDbInitializationService(
         ILogger<InfluxDbInitializationService> logger,
@@ -30,10 +31,11 @@ public class InfluxDbInitializationService : IInfluxDbInitializationService, ITr
         
         var connectionString = _configuration.GetConnectionString("InfluxDB") ?? 
                               "http://localhost:8086";
-        var token = _configuration["InfluxDB:Token"] ?? 
-                   "iot-admin-token-12345678901234567890";
-        _bucket = _configuration["InfluxDB:Bucket"] ?? "iot_data";
-        _organization = _configuration["InfluxDB:Organization"] ?? "IOTDataCollection";
+                       var token = _configuration["InfluxDB:Token"] ?? 
+                          "iot-admin-token-12345678901234567890";
+               _businessBucket = _configuration["InfluxDB:BusinessBucket"] ?? "iot_data_business";
+               _monitoringBucket = _configuration["InfluxDB:MonitoringBucket"] ?? "iot_data_monitoring";
+               _organization = _configuration["InfluxDB:Organization"] ?? "IOTDataCollection";
 
         _influxDbClient = new InfluxDBClient(connectionString, token);
     }
@@ -67,20 +69,34 @@ public class InfluxDbInitializationService : IInfluxDbInitializationService, ITr
                 _logger.LogDebug("InfluxDB组织已存在: {Organization}", _organization);
             }
 
-            // 3. 确保Bucket存在
+            // 3. 确保业务数据Bucket存在
             var bucketsApi = _influxDbClient.GetBucketsApi();
             var buckets = await bucketsApi.FindBucketsAsync();
-            var bucket = buckets.FirstOrDefault(b => b.Name == _bucket);
+            var businessBucket = buckets.FirstOrDefault(b => b.Name == _businessBucket);
             
-            if (bucket == null)
+            if (businessBucket == null)
             {
-                _logger.LogInformation("创建InfluxDB Bucket: {Bucket}", _bucket);
-                await bucketsApi.CreateBucketAsync(_bucket, organization);
+                _logger.LogInformation("创建InfluxDB业务数据Bucket: {Bucket}", _businessBucket);
+                await bucketsApi.CreateBucketAsync(_businessBucket, organization);
                 result.BucketCreated = true;
             }
             else
             {
-                _logger.LogDebug("InfluxDB Bucket已存在: {Bucket}", _bucket);
+                _logger.LogDebug("InfluxDB业务数据Bucket已存在: {Bucket}", _businessBucket);
+            }
+
+            // 4. 确保监控数据Bucket存在
+            var monitoringBucket = buckets.FirstOrDefault(b => b.Name == _monitoringBucket);
+            
+            if (monitoringBucket == null)
+            {
+                _logger.LogInformation("创建InfluxDB监控数据Bucket: {Bucket}", _monitoringBucket);
+                await bucketsApi.CreateBucketAsync(_monitoringBucket, organization);
+                result.BucketCreated = true;
+            }
+            else
+            {
+                _logger.LogDebug("InfluxDB监控数据Bucket已存在: {Bucket}", _monitoringBucket);
             }
 
             result.Success = true;
@@ -101,7 +117,7 @@ public class InfluxDbInitializationService : IInfluxDbInitializationService, ITr
         var status = new InfluxDbStatusInfo
         {
             Organization = _organization,
-            Bucket = _bucket
+            Bucket = $"{_businessBucket}, {_monitoringBucket}"
         };
 
         try
@@ -119,8 +135,9 @@ public class InfluxDbInitializationService : IInfluxDbInitializationService, ITr
             // 3. 检查Bucket是否存在
             var bucketsApi = _influxDbClient.GetBucketsApi();
             var buckets = await bucketsApi.FindBucketsAsync();
-            var bucket = buckets.FirstOrDefault(b => b.Name == _bucket);
-            status.BucketExists = bucket != null;
+            var businessBucket = buckets.FirstOrDefault(b => b.Name == _businessBucket);
+            var monitoringBucket = buckets.FirstOrDefault(b => b.Name == _monitoringBucket);
+            status.BucketExists = businessBucket != null && monitoringBucket != null;
 
             _logger.LogDebug("InfluxDB状态检查完成: 连接={Connection}, 组织={OrgExists}, Bucket={BucketExists}", 
                 status.ConnectionOk, status.OrganizationExists, status.BucketExists);

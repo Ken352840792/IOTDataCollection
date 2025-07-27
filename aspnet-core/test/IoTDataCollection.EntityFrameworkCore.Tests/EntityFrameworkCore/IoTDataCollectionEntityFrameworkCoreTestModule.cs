@@ -68,7 +68,8 @@ public class IoTDataCollectionEntityFrameworkCoreTestModule : AbpModule
                 // InfluxDB配置 - 使用与生产环境相同的bucket名称
                 {"InfluxDB:Token", "iot-admin-token-12345678901234567890"},
                 {"InfluxDB:Organization", "IOTDataCollection"},
-                {"InfluxDB:Bucket", "iot_data"},
+                {"InfluxDB:BusinessBucket", "iot_data_business"},
+                {"InfluxDB:MonitoringBucket", "iot_data_monitoring"},
                 
                 // 其他测试配置
                 {"App:CorsOrigins", "https://localhost:44356"},

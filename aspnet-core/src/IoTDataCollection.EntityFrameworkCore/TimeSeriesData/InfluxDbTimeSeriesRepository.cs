@@ -21,7 +21,8 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
     private readonly ILogger<InfluxDbTimeSeriesRepository> _logger;
     private readonly IConfiguration _configuration;
     private readonly InfluxDBClient _influxDbClient;
-    private readonly string _bucket;
+    private readonly string _businessBucket;
+    private readonly string _monitoringBucket;
     private readonly string _organization;
 
     public InfluxDbTimeSeriesRepository(
@@ -35,7 +36,8 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
                               "http://localhost:8086";
         var token = _configuration["InfluxDB:Token"] ?? 
                    "iot-admin-token-12345678901234567890";
-        _bucket = _configuration["InfluxDB:Bucket"] ?? "iot_data";
+        _businessBucket = _configuration["InfluxDB:BusinessBucket"] ?? "iot_data_business";
+        _monitoringBucket = _configuration["InfluxDB:MonitoringBucket"] ?? "iot_data_monitoring";
         _organization = _configuration["InfluxDB:Organization"] ?? "IOTDataCollection";
 
         _influxDbClient = new InfluxDBClient(connectionString, token);
@@ -48,7 +50,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var writeApi = _influxDbClient.GetWriteApiAsync();
-            await writeApi.WriteMeasurementAsync(dataPoint, WritePrecision.Ms, _bucket, _organization, cancellationToken);
+            await writeApi.WriteMeasurementAsync(dataPoint, WritePrecision.Ms, _businessBucket, _organization, cancellationToken);
             
             _logger.LogDebug("写入设备数据点成功: {DeviceCode}.{PointCode} = {Value}", 
                 dataPoint.DeviceCode, dataPoint.PointCode, dataPoint.NumericValue?.ToString() ?? dataPoint.StringValue);
@@ -61,21 +63,21 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         }
     }
 
-    public async Task WriteDeviceDataPointsAsync(IEnumerable<DeviceDataPoint> dataPoints, CancellationToken cancellationToken = default)
-    {
-        try
+            public async Task WriteDeviceDataPointsAsync(IEnumerable<DeviceDataPoint> dataPoints, CancellationToken cancellationToken = default)
         {
-            var writeApi = _influxDbClient.GetWriteApiAsync();
-            await writeApi.WriteMeasurementsAsync<DeviceDataPoint>(dataPoints.ToList(), WritePrecision.Ms, _bucket, _organization, cancellationToken);
-            
-            _logger.LogDebug("批量写入设备数据点成功，数量: {Count}", dataPoints.Count());
+            try
+            {
+                var writeApi = _influxDbClient.GetWriteApiAsync();
+                await writeApi.WriteMeasurementsAsync<DeviceDataPoint>(dataPoints.ToList(), WritePrecision.Ms, _businessBucket, _organization, cancellationToken);
+                
+                _logger.LogDebug("批量写入设备数据点成功，数量: {Count}", dataPoints.Count());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "批量写入设备数据点失败，数量: {Count}", dataPoints.Count());
+                throw;
+            }
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "批量写入设备数据点失败，数量: {Count}", dataPoints.Count());
-            throw;
-        }
-    }
 
     public async Task<List<DeviceDataPoint>> QueryDeviceDataAsync(
         string deviceCode, 
@@ -87,7 +89,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                from(bucket: ""{_bucket}"")
+                from(bucket: ""{_businessBucket}"")
                   |> range(start: {startTime:yyyy-MM-ddTHH:mm:ssZ}, stop: {endTime:yyyy-MM-ddTHH:mm:ssZ})
                   |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
                   |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
@@ -117,7 +119,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                from(bucket: ""{_bucket}"")
+                from(bucket: ""{_businessBucket}"")
                   |> range(start: -24h)
                   |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
                   |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
@@ -143,7 +145,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                from(bucket: ""{_bucket}"")
+                from(bucket: ""{_businessBucket}"")
                   |> range(start: -1h)
                   |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
                   |> filter(fn: (r) => r[""site_code""] == ""{siteCode}"")
@@ -174,7 +176,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                data = from(bucket: ""{_bucket}"")
+                data = from(bucket: ""{_businessBucket}"")
                   |> range(start: {startTime:yyyy-MM-ddTHH:mm:ssZ}, stop: {endTime:yyyy-MM-ddTHH:mm:ssZ})
                   |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
                   |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
@@ -243,7 +245,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var writeApi = _influxDbClient.GetWriteApiAsync();
-            await writeApi.WriteMeasurementAsync(monitoringData, WritePrecision.Ms, _bucket, _organization, cancellationToken);
+            await writeApi.WriteMeasurementAsync(monitoringData, WritePrecision.Ms, _monitoringBucket, _organization, cancellationToken);
             
             _logger.LogDebug("写入系统监控数据成功: {NodeCode}, CPU: {CpuUsage}%, Memory: {MemoryUsage}%", 
                 monitoringData.NodeCode, monitoringData.CpuUsage, monitoringData.MemoryUsage);
@@ -260,7 +262,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var writeApi = _influxDbClient.GetWriteApiAsync();
-            await writeApi.WriteMeasurementsAsync<SystemMonitoringData>(monitoringDataList.ToList(), WritePrecision.Ms, _bucket, _organization, cancellationToken);
+            await writeApi.WriteMeasurementsAsync<SystemMonitoringData>(monitoringDataList.ToList(), WritePrecision.Ms, _monitoringBucket, _organization, cancellationToken);
             
             _logger.LogDebug("批量写入系统监控数据成功，数量: {Count}", monitoringDataList.Count());
         }
@@ -280,7 +282,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                from(bucket: ""{_bucket}"")
+                from(bucket: ""{_monitoringBucket}"")
                   |> range(start: {startTime:yyyy-MM-ddTHH:mm:ssZ}, stop: {endTime:yyyy-MM-ddTHH:mm:ssZ})
                   |> filter(fn: (r) => r[""_measurement""] == ""system_monitoring"")
                   |> filter(fn: (r) => r[""node_code""] == ""{nodeCode}"")
@@ -307,7 +309,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                from(bucket: ""{_bucket}"")
+                from(bucket: ""{_monitoringBucket}"")
                   |> range(start: -1h)
                   |> filter(fn: (r) => r[""_measurement""] == ""system_monitoring"")
                   |> filter(fn: (r) => r[""node_code""] == ""{nodeCode}"")
@@ -330,7 +332,7 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var query = $@"
-                from(bucket: ""{_bucket}"")
+                from(bucket: ""{_monitoringBucket}"")
                   |> range(start: -1h)
                   |> filter(fn: (r) => r[""_measurement""] == ""system_monitoring"")
                   |> group(columns: [""node_code""])
@@ -374,16 +376,29 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var bucketsApi = _influxDbClient.GetBucketsApi();
-            var bucket = await bucketsApi.FindBucketByNameAsync(_bucket, cancellationToken);
             
-            if (bucket == null)
+            // 确保业务数据Bucket存在
+            var businessBucket = await bucketsApi.FindBucketByNameAsync(_businessBucket, cancellationToken);
+            if (businessBucket == null)
             {
-                _logger.LogInformation("创建InfluxDB Bucket: {Bucket}", _bucket);
-                await bucketsApi.CreateBucketAsync(_bucket, _organization, cancellationToken);
+                _logger.LogInformation("创建InfluxDB业务数据Bucket: {Bucket}", _businessBucket);
+                await bucketsApi.CreateBucketAsync(_businessBucket, _organization, cancellationToken);
             }
             else
             {
-                _logger.LogDebug("InfluxDB Bucket已存在: {Bucket}", _bucket);
+                _logger.LogDebug("InfluxDB业务数据Bucket已存在: {Bucket}", _businessBucket);
+            }
+
+            // 确保监控数据Bucket存在
+            var monitoringBucket = await bucketsApi.FindBucketByNameAsync(_monitoringBucket, cancellationToken);
+            if (monitoringBucket == null)
+            {
+                _logger.LogInformation("创建InfluxDB监控数据Bucket: {Bucket}", _monitoringBucket);
+                await bucketsApi.CreateBucketAsync(_monitoringBucket, _organization, cancellationToken);
+            }
+            else
+            {
+                _logger.LogDebug("InfluxDB监控数据Bucket已存在: {Bucket}", _monitoringBucket);
             }
         }
         catch (Exception ex)
@@ -401,9 +416,17 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
             var start = DateTime.UtcNow.AddDays(-retentionDays - 365); // 删除超过保留期的数据
             var stop = DateTime.UtcNow.AddDays(-retentionDays);
 
-            await deleteApi.Delete(start, stop, "", _bucket, _organization, cancellationToken);
+            // 删除业务数据过期数据
+            await deleteApi.Delete(start, stop, "", _businessBucket, _organization, cancellationToken);
             
-            _logger.LogInformation("删除过期数据成功，保留天数: {RetentionDays}", retentionDays);
+            // 删除监控数据过期数据（监控数据保留期可能更短）
+            var monitoringRetentionDays = Math.Min(retentionDays, 30); // 监控数据最多保留30天
+            var monitoringStart = DateTime.UtcNow.AddDays(-monitoringRetentionDays - 365);
+            var monitoringStop = DateTime.UtcNow.AddDays(-monitoringRetentionDays);
+            await deleteApi.Delete(monitoringStart, monitoringStop, "", _monitoringBucket, _organization, cancellationToken);
+            
+            _logger.LogInformation("删除过期数据成功，业务数据保留天数: {RetentionDays}, 监控数据保留天数: {MonitoringRetentionDays}", 
+                retentionDays, monitoringRetentionDays);
         }
         catch (Exception ex)
         {

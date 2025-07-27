@@ -16,6 +16,7 @@ using IoTDataCollection.EntityFrameworkCore;
 using IoTDataCollection.MultiTenancy;
 using StackExchange.Redis;
 using Microsoft.OpenApi.Models;
+using IoTDataCollection.DataCollection;
 using Volo.Abp;
 using Volo.Abp.AspNetCore.Authentication.JwtBearer;
 using Volo.Abp.AspNetCore.Mvc;
@@ -25,11 +26,12 @@ using Volo.Abp.Autofac;
 using Volo.Abp.Caching;
 using Volo.Abp.Caching.StackExchangeRedis;
 using Volo.Abp.DistributedLocking;
-using Volo.Abp.Identity;
 using Volo.Abp.Localization;
 using Volo.Abp.Modularity;
 using Volo.Abp.Security.Claims;
 using Volo.Abp.Swashbuckle;
+using Volo.Abp.Threading;
+using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
 
 namespace IoTDataCollection;
@@ -45,7 +47,7 @@ namespace IoTDataCollection;
     typeof(IoTDataCollectionEntityFrameworkCoreModule),
     typeof(AbpAspNetCoreSerilogModule),
     typeof(AbpSwashbuckleModule)
-)]
+    )]
 public class IoTDataCollectionHttpApiHostModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)
@@ -61,35 +63,24 @@ public class IoTDataCollectionHttpApiHostModule : AbpModule
         ConfigureDistributedLocking(context, configuration);
         ConfigureCors(context, configuration);
         ConfigureSwaggerServices(context, configuration);
+
+        // 配置数据采集消息订阅服务
+        ConfigureDataCollectionServices(context, configuration);
+    }
+
+    private void ConfigureDataCollectionServices(ServiceConfigurationContext context, IConfiguration configuration)
+    {
+        // 配置MQTT消息订阅选项
+        context.Services.Configure<DataCollectionMessageSubscriptionOptions>(
+            configuration.GetSection("DataCollection"));
+
+        // 注册MQTT消息订阅服务
+        context.Services.AddHostedService<DataCollectionMessageSubscriptionService>();
     }
 
     private void ConfigureCache(IConfiguration configuration)
     {
         Configure<AbpDistributedCacheOptions>(options => { options.KeyPrefix = "IoTDataCollection:"; });
-    }
-
-    private void ConfigureVirtualFileSystem(ServiceConfigurationContext context)
-    {
-        var hostingEnvironment = context.Services.GetHostingEnvironment();
-
-        if (hostingEnvironment.IsDevelopment())
-        {
-            Configure<AbpVirtualFileSystemOptions>(options =>
-            {
-                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionDomainSharedModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Domain.Shared"));
-                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionDomainModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Domain"));
-                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionApplicationContractsModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Application.Contracts"));
-                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionApplicationModule>(
-                    Path.Combine(hostingEnvironment.ContentRootPath,
-                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Application"));
-            });
-        }
     }
 
     private void ConfigureConventionalControllers()
@@ -176,6 +167,30 @@ public class IoTDataCollectionHttpApiHostModule : AbpModule
         });
     }
 
+    private void ConfigureVirtualFileSystem(ServiceConfigurationContext context)
+    {
+        var hostingEnvironment = context.Services.GetHostingEnvironment();
+
+        if (hostingEnvironment.IsDevelopment())
+        {
+            Configure<AbpVirtualFileSystemOptions>(options =>
+            {
+                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionDomainSharedModule>(
+                    Path.Combine(hostingEnvironment.ContentRootPath,
+                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Domain.Shared"));
+                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionDomainModule>(
+                    Path.Combine(hostingEnvironment.ContentRootPath,
+                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Domain"));
+                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionApplicationContractsModule>(
+                    Path.Combine(hostingEnvironment.ContentRootPath,
+                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Application.Contracts"));
+                options.FileSets.ReplaceEmbeddedByPhysical<IoTDataCollectionApplicationModule>(
+                    Path.Combine(hostingEnvironment.ContentRootPath,
+                        $"..{Path.DirectorySeparatorChar}IoTDataCollection.Application"));
+            });
+        }
+    }
+
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
     {
         var app = context.GetApplicationBuilder();
@@ -187,6 +202,7 @@ public class IoTDataCollectionHttpApiHostModule : AbpModule
         }
 
         app.UseAbpRequestLocalization();
+
         app.UseCorrelationId();
         app.UseStaticFiles();
         app.UseRouting();
@@ -215,5 +231,10 @@ public class IoTDataCollectionHttpApiHostModule : AbpModule
         app.UseAuditing();
         app.UseAbpSerilogEnrichers();
         app.UseConfiguredEndpoints();
+    }
+
+    public override void OnApplicationShutdown(ApplicationShutdownContext context)
+    {
+        // 移除事件总线取消订阅，因为这里没有使用分布式事件总线
     }
 }
