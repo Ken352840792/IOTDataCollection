@@ -4,6 +4,7 @@ using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.Data;
 using Volo.Abp.DependencyInjection;
 using Volo.Abp.EntityFrameworkCore;
+using Volo.Abp.EntityFrameworkCore.Modeling;
 using Volo.Abp.FeatureManagement.EntityFrameworkCore;
 using Volo.Abp.Identity;
 using Volo.Abp.Identity.EntityFrameworkCore;
@@ -12,6 +13,11 @@ using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
+using IoTDataCollection.Enterprises;
+using IoTDataCollection.Sites;
+using IoTDataCollection.Devices;
+using IoTDataCollection.DataPoints;
+using IoTDataCollection.Rules;
 
 namespace IoTDataCollection.EntityFrameworkCore;
 
@@ -24,6 +30,22 @@ public class IoTDataCollectionDbContext :
     ITenantManagementDbContext
 {
     /* Add DbSet properties for your Aggregate Roots / Entities here. */
+
+    #region IoT Business Entities
+
+    // 组织管理相关实体
+    public DbSet<Enterprises.Enterprise> Enterprises { get; set; }
+    public DbSet<Sites.Site> Sites { get; set; }
+
+    // 设备管理相关实体
+    public DbSet<Devices.Device> Devices { get; set; }
+    public DbSet<DataPoints.DataPoint> DataPoints { get; set; }
+
+    // 规则引擎相关实体
+    public DbSet<Rules.JavaScriptRule> JavaScriptRules { get; set; }
+    public DbSet<Rules.NodeRedFlow> NodeRedFlows { get; set; }
+
+    #endregion
 
     #region Entities from the modules
 
@@ -76,11 +98,88 @@ public class IoTDataCollectionDbContext :
 
         /* Configure your own tables/entities inside here */
 
-        //builder.Entity<YourEntity>(b =>
-        //{
-        //    b.ToTable(IoTDataCollectionConsts.DbTablePrefix + "YourEntities", IoTDataCollectionConsts.DbSchema);
-        //    b.ConfigureByConvention(); //auto configure for the base class props
-        //    //...
-        //});
+        #region IoT Business Entity Configurations
+
+        // 配置企业实体
+        builder.Entity<Enterprises.Enterprise>(b =>
+        {
+            b.ToTable("T_ENTERPRISES", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention(); // 自动配置ABP基类属性
+            
+            // 创建索引
+            b.HasIndex(x => x.F_EnterpriseCode).IsUnique();
+            b.HasIndex(x => x.F_EnterpriseName);
+            b.HasIndex(x => x.F_Status);
+        });
+
+        // 配置站点实体
+        builder.Entity<Sites.Site>(b =>
+        {
+            b.ToTable("T_SITES", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention();
+            
+            // 创建索引
+            b.HasIndex(x => new { x.F_EnterpriseId, x.F_SiteCode }).IsUnique();
+            b.HasIndex(x => x.F_SiteName);
+            b.HasIndex(x => x.F_Status);
+        });
+
+        // 配置设备实体
+        builder.Entity<Devices.Device>(b =>
+        {
+            b.ToTable("T_DEVICES", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention();
+            
+            // 创建索引
+            b.HasIndex(x => new { x.F_SiteId, x.F_DeviceCode }).IsUnique();
+            b.HasIndex(x => x.F_DeviceName);
+            b.HasIndex(x => x.F_ConnectionStatus);
+            b.HasIndex(x => x.F_IsCollectionEnabled);
+            b.HasIndex(x => x.F_Status);
+        });
+
+        // 配置数据点实体
+        builder.Entity<DataPoints.DataPoint>(b =>
+        {
+            b.ToTable("T_DATA_POINTS", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention();
+            
+            // 创建索引
+            b.HasIndex(x => new { x.F_DeviceId, x.F_PointCode }).IsUnique();
+            b.HasIndex(x => x.F_PointName);
+            b.HasIndex(x => x.F_IsCollectionEnabled);
+            b.HasIndex(x => x.F_CollectionPriority);
+            b.HasIndex(x => x.F_Status);
+        });
+
+        // 配置JavaScript规则实体
+        builder.Entity<Rules.JavaScriptRule>(b =>
+        {
+            b.ToTable("T_JAVASCRIPT_RULES", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention();
+            
+            // 创建索引
+            b.HasIndex(x => x.F_RuleCode).IsUnique();
+            b.HasIndex(x => x.F_RuleName);
+            b.HasIndex(x => x.F_DeviceId);
+            b.HasIndex(x => x.F_IsEnabled);
+            b.HasIndex(x => x.F_Status);
+        });
+
+        // 配置Node-RED流程实体
+        builder.Entity<Rules.NodeRedFlow>(b =>
+        {
+            b.ToTable("T_NODERED_FLOWS", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention();
+            
+            // 创建索引
+            b.HasIndex(x => x.F_FlowCode).IsUnique();
+            b.HasIndex(x => x.F_FlowName);
+            b.HasIndex(x => x.F_FlowType);
+            b.HasIndex(x => x.F_IsEnabled);
+            b.HasIndex(x => x.F_Status);
+        });
+
+        #endregion
     }
 }
