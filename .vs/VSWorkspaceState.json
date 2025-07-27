@@ -1,6 +1,9 @@
 {
   "ExpandedNodes": [
-    ""
+    "",
+    "\\aspnet-core",
+    "\\node-red"
   ],
+  "SelectedNode": "\\aspnet-core\\IoTDataCollection.sln",
   "PreviewInSolutionExplorer": false
 }

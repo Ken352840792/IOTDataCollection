@@ -4,6 +4,7 @@ using IoTDataCollection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Volo.Abp.EntityFrameworkCore;
 
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace IoTDataCollection.Migrations
 {
     [DbContext(typeof(IoTDataCollectionDbContext))]
-    partial class IoTDataCollectionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250727105133_UpdateEntityFieldsStructure")]
+    partial class UpdateEntityFieldsStructure
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -64,20 +67,17 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_CollectionPriority")
                         .HasColumnType("int")
-                        .HasColumnName("F_COLLECTION_PRIORITY")
-                        .HasComment("采集优先级 - 1:高 2:中 3:低");
+                        .HasColumnName("F_COLLECTION_PRIORITY");
 
                     b.Property<int?>("F_DataLength")
                         .HasColumnType("int")
-                        .HasColumnName("F_DATA_LENGTH")
-                        .HasComment("数据长度 - 字节数或位数");
+                        .HasColumnName("F_DATA_LENGTH");
 
                     b.Property<string>("F_DataType")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
-                        .HasColumnName("F_DATA_TYPE")
-                        .HasComment("数据类型 - Int16、Int32、Float、Bool、String等");
+                        .HasColumnName("F_DATA_TYPE");
 
                     b.Property<string>("F_DefaultValue")
                         .HasMaxLength(100)
@@ -87,13 +87,11 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
-                        .HasColumnName("F_DESCRIPTION")
-                        .HasComment("数据点描述 - 数据点详细说明");
+                        .HasColumnName("F_DESCRIPTION");
 
                     b.Property<Guid>("F_DeviceId")
                         .HasColumnType("char(36)")
-                        .HasColumnName("F_DEVICE_ID")
-                        .HasComment("设备ID - 关联设备表外键");
+                        .HasColumnName("F_DEVICE_ID");
 
                     b.Property<string>("F_Exp_01")
                         .HasMaxLength(500)
@@ -147,8 +145,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<bool>("F_IsCollectionEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_COLLECTION_ENABLED")
-                        .HasComment("启用采集 - 是否启用此数据点采集");
+                        .HasColumnName("F_IS_COLLECTION_ENABLED");
 
                     b.Property<bool>("F_IsReadOnly")
                         .HasColumnType("tinyint(1)")
@@ -177,54 +174,45 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<double>("F_Offset")
                         .HasColumnType("double")
-                        .HasColumnName("F_OFFSET")
-                        .HasComment("偏移量 - 数据值偏移量");
+                        .HasColumnName("F_OFFSET");
 
                     b.Property<string>("F_PointCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_POINT_CODE")
-                        .HasComment("数据点编码 - 设备内唯一标识");
+                        .HasColumnName("F_POINT_CODE");
 
                     b.Property<string>("F_PointName")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_POINT_NAME")
-                        .HasComment("数据点名称 - 数据点显示名称");
+                        .HasColumnName("F_POINT_NAME");
 
                     b.Property<int?>("F_RegisterAddress")
                         .HasColumnType("int")
-                        .HasColumnName("F_REGISTER_ADDRESS")
-                        .HasComment("寄存器地址 - Modbus寄存器地址");
+                        .HasColumnName("F_REGISTER_ADDRESS");
 
                     b.Property<string>("F_RegisterType")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
-                        .HasColumnName("F_REGISTER_TYPE")
-                        .HasComment("寄存器类型 - 保持寄存器、输入寄存器等");
+                        .HasColumnName("F_REGISTER_TYPE");
 
                     b.Property<double>("F_ScaleFactor")
                         .HasColumnType("double")
-                        .HasColumnName("F_SCALE_FACTOR")
-                        .HasComment("缩放比例 - 数据值缩放因子");
+                        .HasColumnName("F_SCALE_FACTOR");
 
                     b.Property<int>("F_SortOrder")
                         .HasColumnType("int")
-                        .HasColumnName("F_SORT_ORDER")
-                        .HasComment("排序号 - 用于显示排序");
+                        .HasColumnName("F_SORT_ORDER");
 
                     b.Property<int>("F_Status")
                         .HasColumnType("int")
-                        .HasColumnName("F_STATUS")
-                        .HasComment("状态 - 0:禁用 1:启用");
+                        .HasColumnName("F_STATUS");
 
                     b.Property<string>("F_Unit")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
-                        .HasColumnName("F_UNIT")
-                        .HasComment("单位 - 数据值单位");
+                        .HasColumnName("F_UNIT");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -253,10 +241,7 @@ namespace IoTDataCollection.Migrations
                     b.HasIndex("F_DeviceId", "F_PointCode")
                         .IsUnique();
 
-                    b.ToTable("T_DATA_POINTS", null, t =>
-                        {
-                            t.HasComment("数据点信息表 - 存储设备数据点定义和采集配置");
-                        });
+                    b.ToTable("T_DATA_POINTS", (string)null);
                 });
 
             modelBuilder.Entity("IoTDataCollection.Devices.Device", b =>
@@ -294,32 +279,27 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_CollectionInterval")
                         .HasColumnType("int")
-                        .HasColumnName("F_COLLECTION_INTERVAL")
-                        .HasComment("采集间隔 - 数据采集间隔秒数");
+                        .HasColumnName("F_COLLECTION_INTERVAL");
 
                     b.Property<string>("F_CommunicationProtocol")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_COMMUNICATION_PROTOCOL")
-                        .HasComment("通信协议 - Modbus、OPC-UA、TCP等");
+                        .HasColumnName("F_COMMUNICATION_PROTOCOL");
 
                     b.Property<int>("F_ConnectionStatus")
                         .HasColumnType("int")
-                        .HasColumnName("F_CONNECTION_STATUS")
-                        .HasComment("连接状态 - 在线、离线、异常");
+                        .HasColumnName("F_CONNECTION_STATUS");
 
                     b.Property<string>("F_Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
-                        .HasColumnName("F_DESCRIPTION")
-                        .HasComment("设备描述 - 设备详细说明");
+                        .HasColumnName("F_DESCRIPTION");
 
                     b.Property<string>("F_DeviceCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_DEVICE_CODE")
-                        .HasComment("设备编码 - 站点内唯一标识");
+                        .HasColumnName("F_DEVICE_CODE");
 
                     b.Property<string>("F_DeviceModel")
                         .HasMaxLength(128)
@@ -330,14 +310,12 @@ namespace IoTDataCollection.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_DEVICE_NAME")
-                        .HasComment("设备名称 - 设备显示名称");
+                        .HasColumnName("F_DEVICE_NAME");
 
                     b.Property<string>("F_DeviceType")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_DEVICE_TYPE")
-                        .HasComment("设备类型 - PLC、Modbus、OPC-UA等");
+                        .HasColumnName("F_DEVICE_TYPE");
 
                     b.Property<string>("F_Exp_01")
                         .HasMaxLength(500)
@@ -392,13 +370,11 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_IpAddress")
                         .HasMaxLength(45)
                         .HasColumnType("varchar(45)")
-                        .HasColumnName("F_IP_ADDRESS")
-                        .HasComment("IP地址 - 设备网络地址");
+                        .HasColumnName("F_IP_ADDRESS");
 
                     b.Property<bool>("F_IsCollectionEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_COLLECTION_ENABLED")
-                        .HasComment("启用采集 - 是否启用数据采集");
+                        .HasColumnName("F_IS_COLLECTION_ENABLED");
 
                     b.Property<DateTime?>("F_LastCommunicationTime")
                         .HasColumnType("datetime(6)")
@@ -416,8 +392,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int?>("F_Port")
                         .HasColumnType("int")
-                        .HasColumnName("F_PORT")
-                        .HasComment("端口号 - 设备通信端口");
+                        .HasColumnName("F_PORT");
 
                     b.Property<int>("F_RetryCount")
                         .HasColumnType("int")
@@ -425,8 +400,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<Guid>("F_SiteId")
                         .HasColumnType("char(36)")
-                        .HasColumnName("F_SITE_ID")
-                        .HasComment("站点ID - 关联站点表外键");
+                        .HasColumnName("F_SITE_ID");
 
                     b.Property<int?>("F_SlaveAddress")
                         .HasColumnType("int")
@@ -434,13 +408,11 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_SortOrder")
                         .HasColumnType("int")
-                        .HasColumnName("F_SORT_ORDER")
-                        .HasComment("排序号 - 用于显示排序");
+                        .HasColumnName("F_SORT_ORDER");
 
                     b.Property<int>("F_Status")
                         .HasColumnType("int")
-                        .HasColumnName("F_STATUS")
-                        .HasComment("状态 - 0:禁用 1:启用");
+                        .HasColumnName("F_STATUS");
 
                     b.Property<int>("F_Timeout")
                         .HasColumnType("int")
@@ -473,10 +445,7 @@ namespace IoTDataCollection.Migrations
                     b.HasIndex("F_SiteId", "F_DeviceCode")
                         .IsUnique();
 
-                    b.ToTable("T_DEVICES", null, t =>
-                        {
-                            t.HasComment("设备信息表 - 存储工业设备基本信息和连接参数");
-                        });
+                    b.ToTable("T_DEVICES", (string)null);
                 });
 
             modelBuilder.Entity("IoTDataCollection.Enterprises.Enterprise", b =>
@@ -515,46 +484,39 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_Address")
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)")
-                        .HasColumnName("F_ADDRESS")
-                        .HasComment("企业地址 - 企业详细地址");
+                        .HasColumnName("F_ADDRESS");
 
                     b.Property<string>("F_ContactPerson")
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)")
-                        .HasColumnName("F_CONTACT_PERSON")
-                        .HasComment("联系人 - 企业主要联系人姓名");
+                        .HasColumnName("F_CONTACT_PERSON");
 
                     b.Property<string>("F_ContactPhone")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
-                        .HasColumnName("F_CONTACT_PHONE")
-                        .HasComment("联系电话 - 企业联系电话");
+                        .HasColumnName("F_CONTACT_PHONE");
 
                     b.Property<string>("F_Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
-                        .HasColumnName("F_DESCRIPTION")
-                        .HasComment("企业描述 - 企业简介和说明");
+                        .HasColumnName("F_DESCRIPTION");
 
                     b.Property<string>("F_EnterpriseCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_ENTERPRISE_CODE")
-                        .HasComment("企业编码 - 全局唯一标识");
+                        .HasColumnName("F_ENTERPRISE_CODE");
 
                     b.Property<string>("F_EnterpriseName")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_ENTERPRISE_NAME")
-                        .HasComment("企业名称 - 企业全称");
+                        .HasColumnName("F_ENTERPRISE_NAME");
 
                     b.Property<string>("F_EnterpriseType")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_ENTERPRISE_TYPE")
-                        .HasComment("企业类型 - 制造业、服务业等");
+                        .HasColumnName("F_ENTERPRISE_TYPE");
 
                     b.Property<string>("F_Exp_01")
                         .HasMaxLength(500)
@@ -608,24 +570,20 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<bool>("F_IsEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_ENABLED")
-                        .HasComment("是否启用 - 业务启用标识");
+                        .HasColumnName("F_IS_ENABLED");
 
                     b.Property<string>("F_ShortName")
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)")
-                        .HasColumnName("F_SHORT_NAME")
-                        .HasComment("企业简称 - 企业简短名称");
+                        .HasColumnName("F_SHORT_NAME");
 
                     b.Property<int>("F_SortOrder")
                         .HasColumnType("int")
-                        .HasColumnName("F_SORT_ORDER")
-                        .HasComment("排序号 - 用于显示排序");
+                        .HasColumnName("F_SORT_ORDER");
 
                     b.Property<int>("F_Status")
                         .HasColumnType("int")
-                        .HasColumnName("F_STATUS")
-                        .HasComment("状态 - 0:禁用 1:启用");
+                        .HasColumnName("F_STATUS");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -650,10 +608,7 @@ namespace IoTDataCollection.Migrations
 
                     b.HasIndex("F_Status");
 
-                    b.ToTable("T_ENTERPRISES", null, t =>
-                        {
-                            t.HasComment("企业信息表 - 存储企业基本信息和联系方式");
-                        });
+                    b.ToTable("T_ENTERPRISES", (string)null);
                 });
 
             modelBuilder.Entity("IoTDataCollection.Monitoring.CollectorNode", b =>
@@ -691,8 +646,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_ConnectionStatus")
                         .HasColumnType("int")
-                        .HasColumnName("F_CONNECTION_STATUS")
-                        .HasComment("连接状态 - 0:断开 1:已连接 2:连接中");
+                        .HasColumnName("F_CONNECTION_STATUS");
 
                     b.Property<string>("F_ContactPhone")
                         .HasMaxLength(32)
@@ -701,8 +655,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<decimal?>("F_CpuUsage")
                         .HasColumnType("decimal(65,30)")
-                        .HasColumnName("F_CPU_USAGE")
-                        .HasComment("CPU使用率 - 当前CPU使用百分比");
+                        .HasColumnName("F_CPU_USAGE");
 
                     b.Property<decimal?>("F_DataCollectionRate")
                         .HasColumnType("decimal(65,30)")
@@ -710,14 +663,12 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_DataPort")
                         .HasColumnType("int")
-                        .HasColumnName("F_DATA_PORT")
-                        .HasComment("数据端口 - 节点数据通信端口");
+                        .HasColumnName("F_DATA_PORT");
 
                     b.Property<string>("F_Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
-                        .HasColumnName("F_DESCRIPTION")
-                        .HasComment("节点描述 - 节点详细说明");
+                        .HasColumnName("F_DESCRIPTION");
 
                     b.Property<int>("F_DeviceCount")
                         .HasColumnType("int")
@@ -725,8 +676,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<decimal?>("F_DiskUsage")
                         .HasColumnType("decimal(65,30)")
-                        .HasColumnName("F_DISK_USAGE")
-                        .HasComment("磁盘使用率 - 当前磁盘使用百分比");
+                        .HasColumnName("F_DISK_USAGE");
 
                     b.Property<int>("F_ErrorDataCount")
                         .HasColumnType("int")
@@ -789,15 +739,13 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_HeartbeatInterval")
                         .HasColumnType("int")
-                        .HasColumnName("F_HEARTBEAT_INTERVAL")
-                        .HasComment("心跳间隔 - 心跳发送间隔秒数");
+                        .HasColumnName("F_HEARTBEAT_INTERVAL");
 
                     b.Property<string>("F_IpAddress")
                         .IsRequired()
                         .HasMaxLength(45)
                         .HasColumnType("varchar(45)")
-                        .HasColumnName("F_IP_ADDRESS")
-                        .HasComment("IP地址 - 节点网络地址");
+                        .HasColumnName("F_IP_ADDRESS");
 
                     b.Property<bool>("F_IsAlertEnabled")
                         .HasColumnType("tinyint(1)")
@@ -805,13 +753,11 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<bool>("F_IsMonitoringEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_MONITORING_ENABLED")
-                        .HasComment("启用监控 - 是否启用系统监控");
+                        .HasColumnName("F_IS_MONITORING_ENABLED");
 
                     b.Property<DateTime?>("F_LastHeartbeatTime")
                         .HasColumnType("datetime(6)")
-                        .HasColumnName("F_LAST_HEARTBEAT_TIME")
-                        .HasComment("最后心跳时间 - 节点最后心跳时间");
+                        .HasColumnName("F_LAST_HEARTBEAT_TIME");
 
                     b.Property<DateTime?>("F_LastOfflineTime")
                         .HasColumnType("datetime(6)")
@@ -828,8 +774,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<decimal?>("F_MemoryUsage")
                         .HasColumnType("decimal(65,30)")
-                        .HasColumnName("F_MEMORY_USAGE")
-                        .HasComment("内存使用率 - 当前内存使用百分比");
+                        .HasColumnName("F_MEMORY_USAGE");
 
                     b.Property<decimal?>("F_NetworkTraffic")
                         .HasColumnType("decimal(65,30)")
@@ -839,26 +784,22 @@ namespace IoTDataCollection.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_NODE_CODE")
-                        .HasComment("节点编码 - 全局唯一标识");
+                        .HasColumnName("F_NODE_CODE");
 
                     b.Property<string>("F_NodeName")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_NODE_NAME")
-                        .HasComment("节点名称 - 节点显示名称");
+                        .HasColumnName("F_NODE_NAME");
 
                     b.Property<int>("F_NodeStatus")
                         .HasColumnType("int")
-                        .HasColumnName("F_NODE_STATUS")
-                        .HasComment("节点状态 - 0:离线 1:在线 2:故障 3:维护中");
+                        .HasColumnName("F_NODE_STATUS");
 
                     b.Property<string>("F_NodeType")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_NODE_TYPE")
-                        .HasComment("节点类型 - 采集节点、监控节点、边缘节点等");
+                        .HasColumnName("F_NODE_TYPE");
 
                     b.Property<int>("F_OnlineDeviceCount")
                         .HasColumnType("int")
@@ -921,10 +862,7 @@ namespace IoTDataCollection.Migrations
 
                     b.HasIndex("F_NodeType");
 
-                    b.ToTable("T_COLLECTOR_NODES", null, t =>
-                        {
-                            t.HasComment("采集节点表 - 存储数据采集端节点信息和状态");
-                        });
+                    b.ToTable("T_COLLECTOR_NODES", (string)null);
                 });
 
             modelBuilder.Entity("IoTDataCollection.Rules.JavaScriptRule", b =>
@@ -963,23 +901,19 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
-                        .HasColumnName("F_DESCRIPTION")
-                        .HasComment("规则描述 - 规则详细说明");
+                        .HasColumnName("F_DESCRIPTION");
 
                     b.Property<Guid?>("F_DeviceId")
                         .HasColumnType("char(36)")
-                        .HasColumnName("F_DEVICE_ID")
-                        .HasComment("设备ID - 关联设备表外键，为空表示全局规则");
+                        .HasColumnName("F_DEVICE_ID");
 
                     b.Property<long>("F_ExecutionCount")
                         .HasColumnType("bigint")
-                        .HasColumnName("F_EXECUTION_COUNT")
-                        .HasComment("执行次数 - 规则执行统计");
+                        .HasColumnName("F_EXECUTION_COUNT");
 
                     b.Property<int>("F_ExecutionPriority")
                         .HasColumnType("int")
-                        .HasColumnName("F_EXECUTION_PRIORITY")
-                        .HasComment("执行优先级 - 1:高 2:中 3:低");
+                        .HasColumnName("F_EXECUTION_PRIORITY");
 
                     b.Property<string>("F_Exp_01")
                         .HasMaxLength(500)
@@ -1037,8 +971,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<bool>("F_IsHotUpdateEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_HOT_UPDATE_ENABLED")
-                        .HasComment("启用热更新 - 是否支持热更新");
+                        .HasColumnName("F_IS_HOT_UPDATE_ENABLED");
 
                     b.Property<string>("F_LastErrorMessage")
                         .HasMaxLength(2000)
@@ -1052,8 +985,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<DateTime?>("F_LastExecutionTime")
                         .HasColumnType("datetime(6)")
-                        .HasColumnName("F_LAST_EXECUTION_TIME")
-                        .HasComment("最后执行时间 - 规则最后执行时间");
+                        .HasColumnName("F_LAST_EXECUTION_TIME");
 
                     b.Property<long>("F_MemoryLimit")
                         .HasColumnType("bigint")
@@ -1063,27 +995,23 @@ namespace IoTDataCollection.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_RULE_CODE")
-                        .HasComment("规则编码 - 全局唯一标识");
+                        .HasColumnName("F_RULE_CODE");
 
                     b.Property<string>("F_RuleName")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_RULE_NAME")
-                        .HasComment("规则名称 - 规则显示名称");
+                        .HasColumnName("F_RULE_NAME");
 
                     b.Property<string>("F_RuleType")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_RULE_TYPE")
-                        .HasComment("规则类型 - 数据处理、告警、控制等");
+                        .HasColumnName("F_RULE_TYPE");
 
                     b.Property<string>("F_ScriptCode")
                         .IsRequired()
                         .HasColumnType("LONGTEXT")
-                        .HasColumnName("F_SCRIPT_CODE")
-                        .HasComment("脚本代码 - JavaScript代码内容");
+                        .HasColumnName("F_SCRIPT_CODE");
 
                     b.Property<int>("F_SortOrder")
                         .HasColumnType("int")
@@ -1091,8 +1019,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_Status")
                         .HasColumnType("int")
-                        .HasColumnName("F_STATUS")
-                        .HasComment("状态 - 0:禁用 1:启用");
+                        .HasColumnName("F_STATUS");
 
                     b.Property<int>("F_Timeout")
                         .HasColumnType("int")
@@ -1101,8 +1028,7 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_TriggerCondition")
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)")
-                        .HasColumnName("F_TRIGGER_CONDITION")
-                        .HasComment("触发条件 - 时间触发、数据变化触发等");
+                        .HasColumnName("F_TRIGGER_CONDITION");
 
                     b.Property<string>("F_Version")
                         .IsRequired()
@@ -1137,10 +1063,7 @@ namespace IoTDataCollection.Migrations
 
                     b.HasIndex("F_Status");
 
-                    b.ToTable("T_JAVASCRIPT_RULES", null, t =>
-                        {
-                            t.HasComment("JavaScript规则表 - 存储采集端边缘计算规则脚本");
-                        });
+                    b.ToTable("T_JAVASCRIPT_RULES", (string)null);
                 });
 
             modelBuilder.Entity("IoTDataCollection.Rules.NodeRedFlow", b =>
@@ -1192,13 +1115,11 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<long>("F_ExecutionCount")
                         .HasColumnType("bigint")
-                        .HasColumnName("F_EXECUTION_COUNT")
-                        .HasComment("执行次数 - 流程执行统计");
+                        .HasColumnName("F_EXECUTION_COUNT");
 
                     b.Property<int>("F_ExecutionPriority")
                         .HasColumnType("int")
-                        .HasColumnName("F_EXECUTION_PRIORITY")
-                        .HasComment("执行优先级 - 1:高 2:中 3:低");
+                        .HasColumnName("F_EXECUTION_PRIORITY");
 
                     b.Property<string>("F_Exp_01")
                         .HasMaxLength(500)
@@ -1253,34 +1174,29 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_FlowCategory")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_FLOW_CATEGORY")
-                        .HasComment("流程分类 - 实时处理、批量处理、定时任务等");
+                        .HasColumnName("F_FLOW_CATEGORY");
 
                     b.Property<string>("F_FlowCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_FLOW_CODE")
-                        .HasComment("流程编码 - 全局唯一标识");
+                        .HasColumnName("F_FLOW_CODE");
 
                     b.Property<string>("F_FlowConfig")
                         .IsRequired()
                         .HasColumnType("LONGTEXT")
-                        .HasColumnName("F_FLOW_CONFIG")
-                        .HasComment("流程配置 - Node-RED流程JSON配置");
+                        .HasColumnName("F_FLOW_CONFIG");
 
                     b.Property<string>("F_FlowName")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_FLOW_NAME")
-                        .HasComment("流程名称 - 流程显示名称");
+                        .HasColumnName("F_FLOW_NAME");
 
                     b.Property<string>("F_FlowType")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_FLOW_TYPE")
-                        .HasComment("流程类型 - 数据汇集、数据转换、告警处理等");
+                        .HasColumnName("F_FLOW_TYPE");
 
                     b.Property<string>("F_InputTopics")
                         .HasColumnType("TEXT")
@@ -1288,13 +1204,11 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<bool>("F_IsEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_ENABLED")
-                        .HasComment("是否启用 - 流程启用状态");
+                        .HasColumnName("F_IS_ENABLED");
 
                     b.Property<bool>("F_IsHotDeployEnabled")
                         .HasColumnType("tinyint(1)")
-                        .HasColumnName("F_IS_HOT_DEPLOY_ENABLED")
-                        .HasComment("启用热部署 - 是否支持热部署");
+                        .HasColumnName("F_IS_HOT_DEPLOY_ENABLED");
 
                     b.Property<string>("F_LastDeployStatus")
                         .HasMaxLength(32)
@@ -1303,8 +1217,7 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<DateTime?>("F_LastDeployTime")
                         .HasColumnType("datetime(6)")
-                        .HasColumnName("F_LAST_DEPLOY_TIME")
-                        .HasComment("最后部署时间 - 流程最后部署时间");
+                        .HasColumnName("F_LAST_DEPLOY_TIME");
 
                     b.Property<string>("F_LastErrorMessage")
                         .HasMaxLength(2000)
@@ -1313,13 +1226,11 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<DateTime?>("F_LastExecutionTime")
                         .HasColumnType("datetime(6)")
-                        .HasColumnName("F_LAST_EXECUTION_TIME")
-                        .HasComment("最后执行时间 - 流程最后执行时间");
+                        .HasColumnName("F_LAST_EXECUTION_TIME");
 
                     b.Property<int>("F_MaxProcessingRate")
                         .HasColumnType("int")
-                        .HasColumnName("F_MAX_PROCESSING_RATE")
-                        .HasComment("最大处理速率 - 每秒处理条数");
+                        .HasColumnName("F_MAX_PROCESSING_RATE");
 
                     b.Property<string>("F_OutputTopics")
                         .HasColumnType("TEXT")
@@ -1339,21 +1250,18 @@ namespace IoTDataCollection.Migrations
 
                     b.Property<int>("F_Status")
                         .HasColumnType("int")
-                        .HasColumnName("F_STATUS")
-                        .HasComment("状态 - 0:禁用 1:启用");
+                        .HasColumnName("F_STATUS");
 
                     b.Property<string>("F_TabId")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_TAB_ID")
-                        .HasComment("标签页ID - Node-RED标签页标识");
+                        .HasColumnName("F_TAB_ID");
 
                     b.Property<string>("F_Version")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
-                        .HasColumnName("F_VERSION")
-                        .HasComment("版本号 - 流程版本标识");
+                        .HasColumnName("F_VERSION");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -1382,10 +1290,7 @@ namespace IoTDataCollection.Migrations
 
                     b.HasIndex("F_Status");
 
-                    b.ToTable("T_NODERED_FLOWS", null, t =>
-                        {
-                            t.HasComment("Node-RED流程表 - 存储服务端可视化数据处理流程");
-                        });
+                    b.ToTable("T_NODERED_FLOWS", (string)null);
                 });
 
             modelBuilder.Entity("IoTDataCollection.Sites.Site", b =>
@@ -1424,25 +1329,21 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_Address")
                         .HasMaxLength(512)
                         .HasColumnType("varchar(512)")
-                        .HasColumnName("F_ADDRESS")
-                        .HasComment("站点地址 - 站点详细地址");
+                        .HasColumnName("F_ADDRESS");
 
                     b.Property<string>("F_ContactPhone")
                         .HasMaxLength(32)
                         .HasColumnType("varchar(32)")
-                        .HasColumnName("F_CONTACT_PHONE")
-                        .HasComment("联系电话 - 站点联系电话");
+                        .HasColumnName("F_CONTACT_PHONE");
 
                     b.Property<string>("F_Description")
                         .HasMaxLength(1000)
                         .HasColumnType("varchar(1000)")
-                        .HasColumnName("F_DESCRIPTION")
-                        .HasComment("站点描述 - 站点简介和说明");
+                        .HasColumnName("F_DESCRIPTION");
 
                     b.Property<Guid>("F_EnterpriseId")
                         .HasColumnType("char(36)")
-                        .HasColumnName("F_ENTERPRISE_ID")
-                        .HasComment("企业ID - 关联企业表外键");
+                        .HasColumnName("F_ENTERPRISE_ID");
 
                     b.Property<string>("F_Exp_01")
                         .HasMaxLength(500)
@@ -1497,44 +1398,37 @@ namespace IoTDataCollection.Migrations
                     b.Property<string>("F_Manager")
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)")
-                        .HasColumnName("F_MANAGER")
-                        .HasComment("负责人 - 站点负责人姓名");
+                        .HasColumnName("F_MANAGER");
 
                     b.Property<string>("F_ShortName")
                         .HasMaxLength(128)
                         .HasColumnType("varchar(128)")
-                        .HasColumnName("F_SHORT_NAME")
-                        .HasComment("站点简称 - 站点简短名称");
+                        .HasColumnName("F_SHORT_NAME");
 
                     b.Property<string>("F_SiteCode")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_SITE_CODE")
-                        .HasComment("站点编码 - 企业内唯一标识");
+                        .HasColumnName("F_SITE_CODE");
 
                     b.Property<string>("F_SiteName")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("varchar(256)")
-                        .HasColumnName("F_SITE_NAME")
-                        .HasComment("站点名称 - 站点全称");
+                        .HasColumnName("F_SITE_NAME");
 
                     b.Property<string>("F_SiteType")
                         .HasMaxLength(64)
                         .HasColumnType("varchar(64)")
-                        .HasColumnName("F_SITE_TYPE")
-                        .HasComment("站点类型 - 工厂、车间、仓库等");
+                        .HasColumnName("F_SITE_TYPE");
 
                     b.Property<int>("F_SortOrder")
                         .HasColumnType("int")
-                        .HasColumnName("F_SORT_ORDER")
-                        .HasComment("排序号 - 用于显示排序");
+                        .HasColumnName("F_SORT_ORDER");
 
                     b.Property<int>("F_Status")
                         .HasColumnType("int")
-                        .HasColumnName("F_STATUS")
-                        .HasComment("状态 - 0:禁用 1:启用");
+                        .HasColumnName("F_STATUS");
 
                     b.Property<bool>("IsDeleted")
                         .ValueGeneratedOnAdd()
@@ -1559,10 +1453,7 @@ namespace IoTDataCollection.Migrations
                     b.HasIndex("F_EnterpriseId", "F_SiteCode")
                         .IsUnique();
 
-                    b.ToTable("T_SITES", null, t =>
-                        {
-                            t.HasComment("站点信息表 - 存储企业下属站点/工厂信息");
-                        });
+                    b.ToTable("T_SITES", (string)null);
                 });
 
             modelBuilder.Entity("Volo.Abp.AuditLogging.AuditLog", b =>

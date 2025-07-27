@@ -53,5 +53,27 @@ public class IoTDataCollectionEntityFrameworkCoreModule : AbpModule
         // 注册InfluxDB时序数据仓储
         context.Services.AddTransient<IoTDataCollection.TimeSeriesData.ITimeSeriesRepository, 
             EntityFrameworkCore.TimeSeriesData.InfluxDbTimeSeriesRepository>();
+
+        // 注册业务实体仓储实现
+        context.Services.AddTransient<IoTDataCollection.Enterprises.IEnterpriseRepository, 
+            Enterprises.EfCoreEnterpriseRepository>();
+        
+        context.Services.AddTransient<IoTDataCollection.Sites.ISiteRepository, 
+            Sites.EfCoreSiteRepository>();
+        
+        context.Services.AddTransient<IoTDataCollection.Devices.IDeviceRepository, 
+            Devices.EfCoreDeviceRepository>();
+        
+        context.Services.AddTransient<IoTDataCollection.DataPoints.IDataPointRepository, 
+            DataPoints.EfCoreDataPointRepository>();
+        
+        context.Services.AddTransient<IoTDataCollection.Monitoring.ICollectorNodeRepository, 
+            Monitoring.EfCoreCollectorNodeRepository>();
+        
+        context.Services.AddTransient<IoTDataCollection.Rules.IJavaScriptRuleRepository, 
+            Rules.EfCoreJavaScriptRuleRepository>();
+        
+        context.Services.AddTransient<IoTDataCollection.Rules.INodeRedFlowRepository, 
+            Rules.EfCoreNodeRedFlowRepository>();
     }
 }

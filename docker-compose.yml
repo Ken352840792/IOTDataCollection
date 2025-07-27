@@ -70,12 +70,31 @@ services:
     networks:
       - iot_network
 
+  # NanoMQ MQTT消息队列服务
+  nanomq:
+    image: emqx/nanomq:0.21.1-slim
+    container_name: iot-nanomq
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "1883:1883"    # MQTT端口
+      - "8083:8083"    # WebSocket端口
+      - "18083:18083"  # 管理面板端口
+    volumes:
+      - nanomq_data:/opt/nanomq/data
+      - ./mqtt/nanomq.conf:/etc/nanomq.conf
+    networks:
+      - iot_network
+    command: ["nanomq", "start", "--conf", "/etc/nanomq.conf"]
+
 volumes:
   mysql_data:
   node_red_data:
   redis_data:
   influxdb_data:
   influxdb_config:
+  nanomq_data:
 
 networks:
   iot_network:
