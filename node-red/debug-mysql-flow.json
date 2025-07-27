@@ -1,0 +1,234 @@
+[
+  {
+    "id": "debug_tab",
+    "type": "tab",
+    "label": "MySQL连接调试",
+    "disabled": false,
+    "info": "逐步调试MySQL连接问题"
+  },
+  {
+    "id": "test_basic",
+    "type": "inject",
+    "z": "debug_tab",
+    "name": "1️⃣ 基础连接测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "基础测试",
+    "payloadType": "str",
+    "x": 160,
+    "y": 80,
+    "wires": [
+      [
+        "basic_query"
+      ]
+    ]
+  },
+  {
+    "id": "basic_query",
+    "type": "function",
+    "z": "debug_tab",
+    "name": "最简单的查询",
+    "func": "// 最基础的SQL查询\nmsg.topic = \"SELECT 1 as test\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 80,
+    "wires": [
+      [
+        "mysql_basic"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_basic",
+    "type": "mysql",
+    "z": "debug_tab",
+    "mydb": "",
+    "name": "MySQL基础测试",
+    "x": 580,
+    "y": 80,
+    "wires": [
+      [
+        "debug_basic"
+      ]
+    ]
+  },
+  {
+    "id": "debug_basic",
+    "type": "debug",
+    "z": "debug_tab",
+    "name": "基础测试结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 780,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "test_database",
+    "type": "inject",
+    "z": "debug_tab",
+    "name": "2️⃣ 数据库查询",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "数据库测试",
+    "payloadType": "str",
+    "x": 160,
+    "y": 140,
+    "wires": [
+      [
+        "db_query"
+      ]
+    ]
+  },
+  {
+    "id": "db_query",
+    "type": "function",
+    "z": "debug_tab",
+    "name": "查询数据库信息",
+    "func": "// 查询当前数据库信息\nmsg.topic = \"SELECT DATABASE() as current_db, USER() as current_user, NOW() as current_time\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 140,
+    "wires": [
+      [
+        "mysql_db"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_db",
+    "type": "mysql",
+    "z": "debug_tab",
+    "mydb": "",
+    "name": "MySQL数据库查询",
+    "x": 590,
+    "y": 140,
+    "wires": [
+      [
+        "debug_db"
+      ]
+    ]
+  },
+  {
+    "id": "debug_db",
+    "type": "debug",
+    "z": "debug_tab",
+    "name": "数据库信息",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 780,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "test_tables",
+    "type": "inject",
+    "z": "debug_tab",
+    "name": "3️⃣ 查询表结构",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "表结构测试",
+    "payloadType": "str",
+    "x": 160,
+    "y": 200,
+    "wires": [
+      [
+        "tables_query"
+      ]
+    ]
+  },
+  {
+    "id": "tables_query",
+    "type": "function",
+    "z": "debug_tab",
+    "name": "查询IoT表",
+    "func": "// 查询IoT相关表是否存在\nmsg.topic = \"SHOW TABLES LIKE 'T_%'\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 200,
+    "wires": [
+      [
+        "mysql_tables"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_tables",
+    "type": "mysql",
+    "z": "debug_tab",
+    "mydb": "",
+    "name": "MySQL表查询",
+    "x": 580,
+    "y": 200,
+    "wires": [
+      [
+        "debug_tables"
+      ]
+    ]
+  },
+  {
+    "id": "debug_tables",
+    "type": "debug",
+    "z": "debug_tab",
+    "name": "表结构信息",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 780,
+    "y": 200,
+    "wires": []
+  }
+]

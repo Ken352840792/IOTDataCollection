@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IoTDataCollection.Application.Contracts\IoTDataCollection.Application.Contracts.csproj" />
+    <ProjectReference Include="..\IoTDataCollection.Application\IoTDataCollection.Application.csproj" />
   </ItemGroup>
 
   <ItemGroup>

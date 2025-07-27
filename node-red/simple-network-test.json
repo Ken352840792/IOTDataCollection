@@ -1,0 +1,248 @@
+[
+  {
+    "id": "simple_test_tab",
+    "type": "tab",
+    "label": "简单网络测试",
+    "disabled": false,
+    "info": "使用内置功能测试容器连通性"
+  },
+  {
+    "id": "test_http_mysql",
+    "type": "inject",
+    "z": "simple_test_tab",
+    "name": "🌐 HTTP测试MySQL",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "HTTP测试",
+    "payloadType": "str",
+    "x": 150,
+    "y": 80,
+    "wires": [
+      [
+        "http_request_mysql"
+      ]
+    ]
+  },
+  {
+    "id": "http_request_mysql",
+    "type": "http request",
+    "z": "simple_test_tab",
+    "name": "测试MySQL端口",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "http://iot-mysql:3306",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 380,
+    "y": 80,
+    "wires": [
+      [
+        "format_http_result"
+      ]
+    ]
+  },
+  {
+    "id": "format_http_result",
+    "type": "function",
+    "z": "simple_test_tab",
+    "name": "分析HTTP结果",
+    "func": "// HTTP请求到MySQL端口的结果分析\nif (msg.statusCode) {\n    if (msg.statusCode >= 200 && msg.statusCode < 500) {\n        msg.payload = {\n            status: \"✅ 网络连通\",\n            message: \"Node-RED可以访问iot-mysql容器\",\n            host: \"iot-mysql\",\n            port: 3306,\n            httpStatus: msg.statusCode,\n            note: \"HTTP响应说明MySQL端口可达\"\n        };\n    } else {\n        msg.payload = {\n            status: \"⚠️ 网络连通但服务异常\",\n            message: \"可以访问容器但MySQL服务可能有问题\",\n            httpStatus: msg.statusCode\n        };\n    }\n} else if (msg.error) {\n    if (msg.error.code === 'ECONNREFUSED') {\n        msg.payload = {\n            status: \"❌ 连接被拒绝\",\n            message: \"MySQL容器未启动或端口未开放\",\n            error: msg.error.message\n        };\n    } else if (msg.error.code === 'ENOTFOUND') {\n        msg.payload = {\n            status: \"❌ DNS解析失败\",\n            message: \"无法解析iot-mysql主机名\",\n            error: msg.error.message\n        };\n    } else {\n        msg.payload = {\n            status: \"❌ 网络错误\",\n            message: \"其他网络连接问题\",\n            error: msg.error.message,\n            errorCode: msg.error.code\n        };\n    }\n} else {\n    msg.payload = {\n        status: \"⚠️ 未知状态\",\n        message: \"HTTP请求没有返回预期结果\",\n        response: msg.payload\n    };\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 80,
+    "wires": [
+      [
+        "debug_http"
+      ]
+    ]
+  },
+  {
+    "id": "debug_http",
+    "type": "debug",
+    "z": "simple_test_tab",
+    "name": "网络测试结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 800,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "test_mysql_direct",
+    "type": "inject",
+    "z": "simple_test_tab",
+    "name": "🐬 直接MySQL测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "MySQL直连",
+    "payloadType": "str",
+    "x": 160,
+    "y": 140,
+    "wires": [
+      [
+        "prepare_mysql_test"
+      ]
+    ]
+  },
+  {
+    "id": "prepare_mysql_test",
+    "type": "function",
+    "z": "simple_test_tab",
+    "name": "准备MySQL测试",
+    "func": "// 准备最基础的MySQL连接测试\nmsg.topic = \"SELECT 'Connection Test' as message, NOW() as timestamp\";\nmsg.payload = {\n    host: \"iot-mysql\",\n    port: 3306,\n    user: \"root\",\n    password: \"iot123456\",\n    database: \"IoTDataCollection_Main\"\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 140,
+    "wires": [
+      [
+        "mysql_simple"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_simple",
+    "type": "mysql",
+    "z": "simple_test_tab",
+    "mydb": "",
+    "name": "MySQL简单查询",
+    "x": 590,
+    "y": 140,
+    "wires": [
+      [
+        "format_mysql_result"
+      ]
+    ]
+  },
+  {
+    "id": "format_mysql_result",
+    "type": "function",
+    "z": "simple_test_tab",
+    "name": "MySQL结果分析",
+    "func": "// 分析MySQL查询结果\nif (msg.payload && Array.isArray(msg.payload) && msg.payload.length > 0) {\n    const result = msg.payload[0];\n    msg.payload = {\n        status: \"✅ MySQL连接成功\",\n        message: \"数据库连接和查询正常\",\n        connection: \"Node-RED ↔ MySQL 连接正常\",\n        queryResult: result,\n        timestamp: new Date().toISOString()\n    };\n} else if (msg.error) {\n    msg.payload = {\n        status: \"❌ MySQL连接失败\",\n        message: \"数据库连接或查询失败\",\n        error: msg.error.message || msg.error,\n        errorCode: msg.error.code,\n        timestamp: new Date().toISOString()\n    };\n} else {\n    msg.payload = {\n        status: \"⚠️ MySQL查询异常\",\n        message: \"查询没有返回预期结果\",\n        response: msg.payload,\n        timestamp: new Date().toISOString()\n    };\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 800,
+    "y": 140,
+    "wires": [
+      [
+        "debug_mysql_simple"
+      ]
+    ]
+  },
+  {
+    "id": "debug_mysql_simple",
+    "type": "debug",
+    "z": "simple_test_tab",
+    "name": "MySQL测试结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1020,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "test_container_info",
+    "type": "inject",
+    "z": "simple_test_tab",
+    "name": "📋 容器环境信息",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "环境信息",
+    "payloadType": "str",
+    "x": 160,
+    "y": 200,
+    "wires": [
+      [
+        "get_env_info"
+      ]
+    ]
+  },
+  {
+    "id": "get_env_info",
+    "type": "function",
+    "z": "simple_test_tab",
+    "name": "获取环境信息",
+    "func": "// 获取Node-RED容器的环境信息\nmsg.payload = {\n    nodeRedInfo: {\n        hostname: msg.req ? msg.req.hostname : 'localhost',\n        timestamp: new Date().toISOString(),\n        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone\n    },\n    mysqlConnection: {\n        expectedHost: \"iot-mysql\",\n        expectedPort: 3306,\n        expectedDatabase: \"IoTDataCollection_Main\",\n        expectedUser: \"root\"\n    },\n    networkTest: {\n        message: \"容器间通信测试准备就绪\",\n        testOrder: [\n            \"1. HTTP端口测试 - 验证网络层连通性\",\n            \"2. MySQL直连测试 - 验证数据库层连接\"\n        ]\n    }\n};\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 200,
+    "wires": [
+      [
+        "debug_env"
+      ]
+    ]
+  },
+  {
+    "id": "debug_env",
+    "type": "debug",
+    "z": "simple_test_tab",
+    "name": "环境信息",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 570,
+    "y": 200,
+    "wires": []
+  }
+]

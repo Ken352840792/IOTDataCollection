@@ -1,0 +1,191 @@
+[
+    {
+        "id": "verification_tab",
+        "type": "tab",
+        "label": "Node-RED验证测试",
+        "disabled": false,
+        "info": "验证Node-RED安装和MySQL连接"
+    },
+    {
+        "id": "test_inject",
+        "type": "inject",
+        "z": "verification_tab",
+        "name": "点击测试",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "测试开始",
+        "payloadType": "str",
+        "x": 150,
+        "y": 120,
+        "wires": [
+            ["test_mysql"]
+        ]
+    },
+    {
+        "id": "test_mysql",
+        "type": "function",
+        "z": "verification_tab", 
+        "name": "准备SQL查询",
+        "func": "// 测试数据库连接的简单查询\nmsg.topic = \"SELECT 'Node-RED连接MySQL成功!' as message, NOW() as current_time\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 120,
+        "wires": [
+            ["mysql_query"]
+        ]
+    },
+    {
+        "id": "mysql_query",
+        "type": "mysql",
+        "z": "verification_tab",
+        "mydb": "iot_mysql_config",
+        "name": "执行MySQL查询",
+        "x": 570,
+        "y": 120,
+        "wires": [
+            ["format_result"]
+        ]
+    },
+    {
+        "id": "format_result",
+        "type": "function",
+        "z": "verification_tab",
+        "name": "格式化结果",
+        "func": "if (msg.payload && msg.payload.length > 0) {\n    const result = msg.payload[0];\n    msg.payload = {\n        status: \"✅ 成功\",\n        message: result.message,\n        timestamp: result.current_time,\n        connection: \"Node-RED ↔ MySQL 连接正常\"\n    };\n} else {\n    msg.payload = {\n        status: \"❌ 失败\",\n        message: \"无法获取数据库响应\"\n    };\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 750,
+        "y": 120,
+        "wires": [
+            ["debug_output"]
+        ]
+    },
+    {
+        "id": "debug_output",
+        "type": "debug",
+        "z": "verification_tab",
+        "name": "验证结果",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 930,
+        "y": 120,
+        "wires": []
+    },
+    {
+        "id": "test_tables",
+        "type": "inject",
+        "z": "verification_tab",
+        "name": "测试IoT表",
+        "props": [
+            {
+                "p": "payload"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "查询IoT表",
+        "payloadType": "str",
+        "x": 150,
+        "y": 200,
+        "wires": [
+            ["query_enterprises"]
+        ]
+    },
+    {
+        "id": "query_enterprises",
+        "type": "function",
+        "z": "verification_tab",
+        "name": "查询企业表",
+        "func": "// 查询IoT业务表验证数据\nmsg.topic = \"SELECT F_ENTERPRISE_CODE, F_ENTERPRISE_NAME, F_STATUS FROM T_ENTERPRISES LIMIT 3\";\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 350,
+        "y": 200,
+        "wires": [
+            ["mysql_query_2"]
+        ]
+    },
+    {
+        "id": "mysql_query_2",
+        "type": "mysql",
+        "z": "verification_tab",
+        "mydb": "iot_mysql_config",
+        "name": "查询IoT数据",
+        "x": 570,
+        "y": 200,
+        "wires": [
+            ["format_iot_result"]
+        ]
+    },
+    {
+        "id": "format_iot_result",
+        "type": "function",
+        "z": "verification_tab",
+        "name": "IoT数据结果",
+        "func": "if (msg.payload && msg.payload.length > 0) {\n    msg.payload = {\n        status: \"✅ IoT表连接成功\",\n        count: msg.payload.length,\n        data: msg.payload,\n        message: \"Node-RED可以正常访问IoT业务数据\"\n    };\n} else {\n    msg.payload = {\n        status: \"⚠️ 无IoT数据\",\n        message: \"数据库连接正常，但T_ENTERPRISES表为空\"\n    };\n}\nreturn msg;",
+        "outputs": 1,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 750,
+        "y": 200,
+        "wires": [
+            ["debug_iot"]
+        ]
+    },
+    {
+        "id": "debug_iot",
+        "type": "debug",
+        "z": "verification_tab",
+        "name": "IoT数据验证",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 940,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "iot_mysql_config",
+        "type": "MySQLdatabase",
+        "name": "IoT MySQL 数据库",
+        "host": "iot-mysql",
+        "port": "3306",
+        "db": "IoTDataCollection_Main",
+        "tz": "Asia/Shanghai",
+        "charset": "UTF8"
+    }
+] 

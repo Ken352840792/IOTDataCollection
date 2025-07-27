@@ -1,0 +1,294 @@
+[
+  {
+    "id": "network_test_tab",
+    "type": "tab",
+    "label": "容器网络连通性测试",
+    "disabled": false,
+    "info": "测试Node-RED容器与MySQL容器的网络连接"
+  },
+  {
+    "id": "test_dns",
+    "type": "inject",
+    "z": "network_test_tab",
+    "name": "🌐 DNS解析测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "DNS测试",
+    "payloadType": "str",
+    "x": 150,
+    "y": 60,
+    "wires": [
+      [
+        "dns_lookup"
+      ]
+    ]
+  },
+  {
+    "id": "dns_lookup",
+    "type": "function",
+    "z": "network_test_tab",
+    "name": "DNS查询",
+    "func": "const dns = require('dns');\nconst util = require('util');\nconst lookup = util.promisify(dns.lookup);\n\n(async () => {\n    try {\n        const result = await lookup('iot-mysql');\n        msg.payload = {\n            status: \"✅ DNS解析成功\",\n            hostname: \"iot-mysql\",\n            ip: result.address,\n            family: result.family\n        };\n        node.send(msg);\n    } catch (error) {\n        msg.payload = {\n            status: \"❌ DNS解析失败\",\n            hostname: \"iot-mysql\",\n            error: error.message\n        };\n        node.send(msg);\n    }\n})();",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 360,
+    "y": 60,
+    "wires": [
+      [
+        "debug_dns"
+      ]
+    ]
+  },
+  {
+    "id": "debug_dns",
+    "type": "debug",
+    "z": "network_test_tab",
+    "name": "DNS结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 540,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "test_tcp",
+    "type": "inject",
+    "z": "network_test_tab",
+    "name": "🔌 TCP端口测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "TCP测试",
+    "payloadType": "str",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "tcp_connect"
+      ]
+    ]
+  },
+  {
+    "id": "tcp_connect",
+    "type": "function",
+    "z": "network_test_tab",
+    "name": "TCP连接测试",
+    "func": "const net = require('net');\n\nconst socket = new net.Socket();\nconst timeout = 5000;\n\nlet isResolved = false;\n\nconst resolve = (result) => {\n    if (!isResolved) {\n        isResolved = true;\n        msg.payload = result;\n        node.send(msg);\n    }\n};\n\nsocket.setTimeout(timeout);\n\nsocket.on('connect', () => {\n    socket.destroy();\n    resolve({\n        status: \"✅ TCP连接成功\",\n        host: \"iot-mysql\",\n        port: 3306,\n        message: \"MySQL端口可访问\"\n    });\n});\n\nsocket.on('error', (error) => {\n    resolve({\n        status: \"❌ TCP连接失败\",\n        host: \"iot-mysql\",\n        port: 3306,\n        error: error.message\n    });\n});\n\nsocket.on('timeout', () => {\n    socket.destroy();\n    resolve({\n        status: \"⏰ TCP连接超时\",\n        host: \"iot-mysql\",\n        port: 3306,\n        message: \"连接超时，可能存在网络问题\"\n    });\n});\n\nsocket.connect(3306, 'iot-mysql');",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 380,
+    "y": 120,
+    "wires": [
+      [
+        "debug_tcp"
+      ]
+    ]
+  },
+  {
+    "id": "debug_tcp",
+    "type": "debug",
+    "z": "network_test_tab",
+    "name": "TCP结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 570,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "test_mysql_basic",
+    "type": "inject",
+    "z": "network_test_tab",
+    "name": "🐬 MySQL连接测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "MySQL测试",
+    "payloadType": "str",
+    "x": 160,
+    "y": 180,
+    "wires": [
+      [
+        "mysql_test"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_test",
+    "type": "function",
+    "z": "network_test_tab",
+    "name": "MySQL原生连接",
+    "func": "// 使用mysql2模块直接测试连接\nconst mysql = global.get('mysql') || require('mysql2');\n\nconst config = {\n    host: 'iot-mysql',\n    port: 3306,\n    user: 'root',\n    password: 'iot123456',\n    database: 'IoTDataCollection_Main',\n    connectTimeout: 10000,\n    acquireTimeout: 10000\n};\n\nconst connection = mysql.createConnection(config);\n\nconnection.connect((error) => {\n    if (error) {\n        msg.payload = {\n            status: \"❌ MySQL连接失败\",\n            config: {\n                host: config.host,\n                port: config.port,\n                database: config.database\n            },\n            error: error.message,\n            errorCode: error.code\n        };\n    } else {\n        msg.payload = {\n            status: \"✅ MySQL连接成功\",\n            config: {\n                host: config.host,\n                port: config.port,\n                database: config.database\n            },\n            message: \"数据库连接正常\"\n        };\n        \n        // 执行简单查询测试\n        connection.query('SELECT 1 as test', (queryError, results) => {\n            if (!queryError) {\n                msg.payload.queryResult = results;\n                msg.payload.queryStatus = \"查询执行成功\";\n            }\n            connection.end();\n            node.send(msg);\n        });\n        return;\n    }\n    node.send(msg);\n});",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 390,
+    "y": 180,
+    "wires": [
+      [
+        "debug_mysql"
+      ]
+    ]
+  },
+  {
+    "id": "debug_mysql",
+    "type": "debug",
+    "z": "network_test_tab",
+    "name": "MySQL结果",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 590,
+    "y": 180,
+    "wires": []
+  },
+  {
+    "id": "test_all",
+    "type": "inject",
+    "z": "network_test_tab",
+    "name": "🚀 运行全部测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "全部测试",
+    "payloadType": "str",
+    "x": 160,
+    "y": 240,
+    "wires": [
+      [
+        "delay_1",
+        "delay_2",
+        "delay_3"
+      ]
+    ]
+  },
+  {
+    "id": "delay_1",
+    "type": "delay",
+    "z": "network_test_tab",
+    "name": "",
+    "pauseType": "delay",
+    "timeout": "500",
+    "timeoutUnits": "milliseconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 360,
+    "y": 220,
+    "wires": [
+      [
+        "dns_lookup"
+      ]
+    ]
+  },
+  {
+    "id": "delay_2",
+    "type": "delay",
+    "z": "network_test_tab",
+    "name": "",
+    "pauseType": "delay",
+    "timeout": "1000",
+    "timeoutUnits": "milliseconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 370,
+    "y": 240,
+    "wires": [
+      [
+        "tcp_connect"
+      ]
+    ]
+  },
+  {
+    "id": "delay_3",
+    "type": "delay",
+    "z": "network_test_tab",
+    "name": "",
+    "pauseType": "delay",
+    "timeout": "1500",
+    "timeoutUnits": "milliseconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "rateUnits": "second",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "allowrate": false,
+    "outputs": 1,
+    "x": 370,
+    "y": 260,
+    "wires": [
+      [
+        "mysql_test"
+      ]
+    ]
+  }
+]

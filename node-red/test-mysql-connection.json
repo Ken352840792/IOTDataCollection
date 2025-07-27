@@ -1,0 +1,125 @@
+[
+  {
+    "id": "test_flow",
+    "type": "tab",
+    "label": "MySQL连接测试",
+    "disabled": false,
+    "info": "测试Node-RED与MySQL数据库的连接"
+  },
+  {
+    "id": "inject_test",
+    "type": "inject",
+    "z": "test_flow",
+    "name": "触发测试",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 120,
+    "y": 100,
+    "wires": [
+      [
+        "mysql_query"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_query",
+    "type": "function",
+    "z": "test_flow",
+    "name": "查询企业数据",
+    "func": "// 查询企业表测试数据库连接\nmsg.topic = \"SELECT F_ENTERPRISE_CODE, F_ENTERPRISE_NAME, F_STATUS FROM T_ENTERPRISES LIMIT 5\";\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 320,
+    "y": 100,
+    "wires": [
+      [
+        "mysql_node"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_node",
+    "type": "mysql",
+    "z": "test_flow",
+    "mydb": "mysql_config",
+    "name": "MySQL查询",
+    "x": 520,
+    "y": 100,
+    "wires": [
+      [
+        "debug_result",
+        "success_msg"
+      ]
+    ]
+  },
+  {
+    "id": "debug_result",
+    "type": "debug",
+    "z": "test_flow",
+    "name": "调试输出",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 720,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "success_msg",
+    "type": "function",
+    "z": "test_flow",
+    "name": "成功消息",
+    "func": "if (msg.payload && msg.payload.length > 0) {\n    msg.payload = {\n        status: \"success\",\n        message: \"Node-RED与MySQL连接正常\",\n        data: msg.payload\n    };\n} else {\n    msg.payload = {\n        status: \"warning\", \n        message: \"数据库连接正常但无数据\"\n    };\n}\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 720,
+    "y": 160,
+    "wires": [
+      [
+        "debug_status"
+      ]
+    ]
+  },
+  {
+    "id": "debug_status",
+    "type": "debug",
+    "z": "test_flow",
+    "name": "连接状态",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "x": 920,
+    "y": 160,
+    "wires": []
+  },
+  {
+    "id": "mysql_config",
+    "type": "MySQLdatabase",
+    "name": "IoT MySQL",
+    "host": "iot-mysql",
+    "port": "3306",
+    "db": "IoTDataCollection_Main",
+    "tz": "Asia/Shanghai",
+    "charset": "UTF8"
+  }
+]
