@@ -18,6 +18,7 @@ using IoTDataCollection.Sites;
 using IoTDataCollection.Devices;
 using IoTDataCollection.DataPoints;
 using IoTDataCollection.Rules;
+using IoTDataCollection.Monitoring;
 
 namespace IoTDataCollection.EntityFrameworkCore;
 
@@ -44,6 +45,9 @@ public class IoTDataCollectionDbContext :
     // 规则引擎相关实体
     public DbSet<Rules.JavaScriptRule> JavaScriptRules { get; set; }
     public DbSet<Rules.NodeRedFlow> NodeRedFlows { get; set; }
+
+    // 系统监控相关实体
+    public DbSet<Monitoring.CollectorNode> CollectorNodes { get; set; }
 
     #endregion
 
@@ -178,6 +182,23 @@ public class IoTDataCollectionDbContext :
             b.HasIndex(x => x.F_FlowType);
             b.HasIndex(x => x.F_IsEnabled);
             b.HasIndex(x => x.F_Status);
+        });
+
+        // 配置采集节点实体
+        builder.Entity<Monitoring.CollectorNode>(b =>
+        {
+            b.ToTable("T_COLLECTOR_NODES", IoTDataCollectionConsts.DbSchema);
+            b.ConfigureByConvention();
+            
+            // 创建索引
+            b.HasIndex(x => x.F_NodeCode).IsUnique();
+            b.HasIndex(x => x.F_IpAddress).IsUnique();
+            b.HasIndex(x => x.F_NodeName);
+            b.HasIndex(x => x.F_NodeType);
+            b.HasIndex(x => x.F_NodeStatus);
+            b.HasIndex(x => x.F_ConnectionStatus);
+            b.HasIndex(x => x.F_IsMonitoringEnabled);
+            b.HasIndex(x => x.F_LastHeartbeatTime);
         });
 
         #endregion

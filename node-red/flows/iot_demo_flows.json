@@ -1,0 +1,235 @@
+[
+  {
+    "id": "main_flow",
+    "type": "tab",
+    "label": "IoT数据采集流程",
+    "disabled": false,
+    "info": "演示IoT数据采集平台的基本数据处理流程",
+    "env": []
+  },
+  {
+    "id": "http_in_1",
+    "type": "http in",
+    "z": "main_flow",
+    "name": "接收设备数据",
+    "url": "/api/device/data",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 140,
+    "y": 100,
+    "wires": [
+      [
+        "function_1"
+      ]
+    ]
+  },
+  {
+    "id": "function_1",
+    "type": "function",
+    "z": "main_flow",
+    "name": "数据验证与转换",
+    "func": "// IoT数据验证与转换示例\nconst deviceData = msg.payload;\n\n// 基本数据验证\nif (!deviceData.deviceId || !deviceData.timestamp || !deviceData.dataPoints) {\n    msg.statusCode = 400;\n    msg.payload = { error: '数据格式错误', message: '缺少必要字段' };\n    return [null, msg]; // 发送到错误处理\n}\n\n// 数据转换\nconst processedData = {\n    deviceId: deviceData.deviceId,\n    timestamp: new Date(deviceData.timestamp),\n    dataPoints: deviceData.dataPoints.map(point => ({\n        pointCode: point.code,\n        value: parseFloat(point.value),\n        quality: point.quality || 'good',\n        processedAt: new Date()\n    })),\n    metadata: {\n        source: 'node-red-processor',\n        version: '1.0.0'\n    }\n};\n\nmsg.payload = processedData;\nreturn [msg, null]; // 发送到正常处理流程",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 340,
+    "y": 100,
+    "wires": [
+      [
+        "mysql_insert"
+      ],
+      [
+        "http_response_error"
+      ]
+    ]
+  },
+  {
+    "id": "mysql_insert",
+    "type": "function",
+    "z": "main_flow",
+    "name": "存储到MySQL",
+    "func": "// 连接MySQL数据库并插入数据\nconst mysql = global.get('mysql');\nconst config = global.get('iotConfig').mysql;\n\nconst connection = mysql.createConnection(config);\n\nconst deviceData = msg.payload;\n\n// 准备插入语句\nconst insertQueries = [];\n\n// 插入设备数据点\nfor (const point of deviceData.dataPoints) {\n    const query = `\n        INSERT INTO T_DATA_POINTS_HISTORY \n        (F_DeviceId, F_PointCode, F_Value, F_Quality, F_Timestamp, F_ProcessedAt)\n        VALUES (?, ?, ?, ?, ?, ?)\n    `;\n    insertQueries.push({\n        sql: query,\n        values: [\n            deviceData.deviceId,\n            point.pointCode,\n            point.value.toString(),\n            point.quality,\n            deviceData.timestamp,\n            point.processedAt\n        ]\n    });\n}\n\n// 执行批量插入\nPromise.all(insertQueries.map(q => {\n    return new Promise((resolve, reject) => {\n        connection.query(q.sql, q.values, (err, result) => {\n            if (err) reject(err);\n            else resolve(result);\n        });\n    });\n})).then(results => {\n    connection.end();\n    \n    msg.payload = {\n        success: true,\n        message: `成功插入 ${results.length} 条数据点记录`,\n        insertedCount: results.length,\n        deviceId: deviceData.deviceId\n    };\n    \n    node.send([msg, null]);\n}).catch(error => {\n    connection.end();\n    \n    msg.payload = {\n        error: '数据库插入失败',\n        details: error.message,\n        deviceId: deviceData.deviceId\n    };\n    \n    node.send([null, msg]);\n});",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 550,
+    "y": 100,
+    "wires": [
+      [
+        "http_response_success"
+      ],
+      [
+        "http_response_error"
+      ]
+    ]
+  },
+  {
+    "id": "http_response_success",
+    "type": "http response",
+    "z": "main_flow",
+    "name": "成功响应",
+    "statusCode": "200",
+    "headers": {},
+    "x": 750,
+    "y": 80,
+    "wires": []
+  },
+  {
+    "id": "http_response_error",
+    "type": "http response",
+    "z": "main_flow",
+    "name": "错误响应",
+    "statusCode": "500",
+    "headers": {},
+    "x": 750,
+    "y": 140,
+    "wires": []
+  },
+  {
+    "id": "inject_demo",
+    "type": "inject",
+    "z": "main_flow",
+    "name": "测试数据注入",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "",
+    "payload": "{\"deviceId\":\"DEVICE_001\",\"timestamp\":\"2025-01-14T08:00:00Z\",\"dataPoints\":[{\"code\":\"TEMP_01\",\"value\":\"25.6\",\"quality\":\"good\"},{\"code\":\"PRESSURE_01\",\"value\":\"1.2\",\"quality\":\"good\"}]}",
+    "payloadType": "json",
+    "x": 150,
+    "y": 200,
+    "wires": [
+      [
+        "function_1"
+      ]
+    ]
+  },
+  {
+    "id": "debug_1",
+    "type": "debug",
+    "z": "main_flow",
+    "name": "调试输出",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 750,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "rule_flow",
+    "type": "tab",
+    "label": "设备规则引擎",
+    "disabled": false,
+    "info": "演示设备数据的规则处理和告警逻辑",
+    "env": []
+  },
+  {
+    "id": "mqtt_in_1",
+    "type": "mqtt in",
+    "z": "rule_flow",
+    "name": "MQTT设备数据",
+    "topic": "iot/devices/+/data",
+    "qos": "2",
+    "datatype": "json",
+    "broker": "",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "x": 140,
+    "y": 300,
+    "wires": [
+      [
+        "rule_processor"
+      ]
+    ]
+  },
+  {
+    "id": "rule_processor",
+    "type": "function",
+    "z": "rule_flow",
+    "name": "规则处理器",
+    "func": "// IoT设备规则处理示例\nconst deviceData = msg.payload;\nconst deviceId = msg.topic.split('/')[2]; // 从MQTT topic提取设备ID\n\n// 获取设备配置的规则\nconst mysql = global.get('mysql');\nconst config = global.get('iotConfig').mysql;\n\nconst connection = mysql.createConnection(config);\n\n// 查询设备规则\nconst ruleQuery = `\n    SELECT F_RuleCode, F_RuleName, F_TriggerConditions, F_Actions \n    FROM T_JAVASCRIPT_RULES \n    WHERE F_DeviceId = ? AND F_IsEnabled = 1\n`;\n\nconnection.query(ruleQuery, [deviceId], (err, rules) => {\n    if (err) {\n        node.error('查询规则失败: ' + err.message);\n        return;\n    }\n    \n    connection.end();\n    \n    // 处理每个规则\n    for (const rule of rules) {\n        try {\n            // 动态执行规则代码\n            const ruleFunction = new Function('data', 'deviceId', rule.F_RuleCode);\n            const result = ruleFunction(deviceData, deviceId);\n            \n            if (result && result.triggered) {\n                // 规则触发，发送告警\n                const alertMsg = {\n                    payload: {\n                        alertType: 'rule_triggered',\n                        deviceId: deviceId,\n                        ruleName: rule.F_RuleName,\n                        message: result.message,\n                        timestamp: new Date(),\n                        data: deviceData\n                    }\n                };\n                \n                node.send([null, alertMsg]); // 发送到告警流程\n            }\n        } catch (error) {\n            node.error(`规则执行失败 [${rule.F_RuleName}]: ${error.message}`);\n        }\n    }\n    \n    // 发送处理后的数据\n    msg.payload = {\n        ...deviceData,\n        deviceId: deviceId,\n        processedBy: 'rule-engine',\n        rulesApplied: rules.length\n    };\n    \n    node.send([msg, null]); // 发送到正常数据流\n});",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 360,
+    "y": 300,
+    "wires": [
+      [
+        "data_storage"
+      ],
+      [
+        "alert_handler"
+      ]
+    ]
+  },
+  {
+    "id": "data_storage",
+    "type": "function",
+    "z": "rule_flow",
+    "name": "数据存储",
+    "func": "// 存储处理后的数据到数据库\nconst processedData = msg.payload;\n\nnode.log(`存储设备数据: ${processedData.deviceId}, 规则数: ${processedData.rulesApplied}`);\n\n// 这里可以添加数据存储逻辑\nmsg.payload = {\n    success: true,\n    message: '数据存储成功',\n    deviceId: processedData.deviceId\n};\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 570,
+    "y": 280,
+    "wires": [
+      [
+        "debug_2"
+      ]
+    ]
+  },
+  {
+    "id": "alert_handler",
+    "type": "function",
+    "z": "rule_flow",
+    "name": "告警处理",
+    "func": "// 处理设备告警\nconst alert = msg.payload;\n\nnode.warn(`设备告警: ${alert.deviceId} - ${alert.message}`);\n\n// 这里可以添加告警通知逻辑\n// 比如发送邮件、短信、推送通知等\n\nmsg.payload = {\n    alertProcessed: true,\n    deviceId: alert.deviceId,\n    ruleName: alert.ruleName,\n    timestamp: alert.timestamp\n};\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "x": 570,
+    "y": 320,
+    "wires": [
+      [
+        "debug_2"
+      ]
+    ]
+  },
+  {
+    "id": "debug_2",
+    "type": "debug",
+    "z": "rule_flow",
+    "name": "规则调试",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 760,
+    "y": 300,
+    "wires": []
+  }
+]

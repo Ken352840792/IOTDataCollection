@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # MySQL数据库服务
+  iot-mysql:
+    image: mysql:8.0
+    container_name: iot-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: iot123456
+      MYSQL_DATABASE: IoTDataCollection_Main
+      MYSQL_USER: iot_user
+      MYSQL_PASSWORD: iot123456
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/mysql:/docker-entrypoint-initdb.d
+    networks:
+      - iot_network
+
+  # Node-RED服务端规则引擎
+  node-red:
+    image: nodered/node-red:latest
+    container_name: iot-nodered
+    restart: always
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "1880:1880"
+    volumes:
+      - node_red_data:/data
+      - ./node-red/flows:/data/flows
+      - ./node-red/settings:/data/settings
+    networks:
+      - iot_network
+    depends_on:
+      - iot-mysql
+
+  # Redis缓存服务（可选，用于ABP缓存）
+  redis:
+    image: redis:7-alpine
+    container_name: iot-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - iot_network
+
+volumes:
+  mysql_data:
+  node_red_data:
+  redis_data:
+
+networks:
+  iot_network:
+    driver: bridge 

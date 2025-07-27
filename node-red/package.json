@@ -1,0 +1,42 @@
+{
+  "name": "iot-nodered-server",
+  "version": "1.0.0",
+  "description": "IoT数据采集平台的Node-RED服务端规则引擎",
+  "main": "index.js",
+  "scripts": {
+    "start": "node-red",
+    "dev": "node-red --verbose"
+  },
+  "keywords": [
+    "iot",
+    "node-red",
+    "rule-engine",
+    "data-collection",
+    "industrial"
+  ],
+  "author": "IoT Team",
+  "license": "MIT",
+  "dependencies": {
+    "mysql2": "^3.6.5",
+    "axios": "^1.6.2",
+    "moment": "^2.29.4",
+    "node-red-node-mysql": "^1.0.3",
+    "node-red-contrib-mqtt-broker": "^0.2.4",
+    "node-red-contrib-influxdb": "^0.6.1",
+    "node-red-contrib-ui-led": "^0.4.11",
+    "node-red-dashboard": "^3.6.0",
+    "node-red-contrib-json": "^0.3.1",
+    "bcryptjs": "^2.4.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/iot-data-collection.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/iot-data-collection/issues"
+  },
+  "homepage": "https://github.com/your-org/iot-data-collection#readme"
+}
