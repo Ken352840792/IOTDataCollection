@@ -136,6 +136,13 @@ public class CollectorService : ICollectorService
                 return true;
             }
 
+            // 检查MQTT连接状态
+            if (!_communicationService.IsConnected)
+            {
+                _logger.LogDebug("MQTT未连接，跳过数据发送，数据将保留在本地缓存中");
+                return false;
+            }
+
             var unsentData = await _storageService.GetUnsentDataPointsAsync(1000, cancellationToken);
             if (unsentData.Count == 0)
             {
@@ -147,12 +154,21 @@ public class CollectorService : ICollectorService
             // 按设备分组发送
             var deviceGroups = unsentData.GroupBy(d => d.DeviceCode);
             var sentIds = new List<string>();
+            var failedDevices = new List<string>();
 
             foreach (var deviceGroup in deviceGroups)
             {
                 try
                 {
                     var deviceData = deviceGroup.ToList();
+                    
+                    // 检查网络连接状态
+                    if (!_communicationService.IsConnected)
+                    {
+                        _logger.LogWarning("发送过程中MQTT连接断开，停止发送剩余数据");
+                        break;
+                    }
+
                     var success = await _communicationService.SendDeviceDataAsync(deviceGroup.Key, deviceData, cancellationToken);
 
                     if (success)
@@ -163,11 +179,13 @@ public class CollectorService : ICollectorService
                     }
                     else
                     {
+                        failedDevices.Add(deviceGroup.Key);
                         _logger.LogWarning("设备数据发送失败: {DeviceCode}", deviceGroup.Key);
                     }
                 }
                 catch (Exception ex)
                 {
+                    failedDevices.Add(deviceGroup.Key);
                     _logger.LogError(ex, "发送设备数据异常: {DeviceCode}", deviceGroup.Key);
                 }
             }
@@ -176,9 +194,11 @@ public class CollectorService : ICollectorService
             if (sentIds.Count > 0)
             {
                 await _storageService.MarkDataPointsAsSentAsync(sentIds, cancellationToken);
+                _logger.LogInformation("成功发送 {SentCount} 个数据点，失败设备: {FailedDevices}", 
+                    sentIds.Count, string.Join(", ", failedDevices));
             }
 
-            return true;
+            return sentIds.Count > 0;
         }
         catch (Exception ex)
         {
@@ -199,18 +219,39 @@ public class CollectorService : ICollectorService
                 return true;
             }
 
+            // 检查MQTT连接状态
+            if (!_communicationService.IsConnected)
+            {
+                _logger.LogDebug("MQTT未连接，跳过心跳发送");
+                return false;
+            }
+
             var deviceConfigs = await _configurationService.GetAllDeviceConfigsAsync(cancellationToken);
             var enabledDevices = deviceConfigs.Where(d => d.IsEnabled).ToList();
+
+            var successCount = 0;
+            var totalCount = enabledDevices.Count;
 
             foreach (var deviceConfig in enabledDevices)
             {
                 try
                 {
+                    // 检查网络连接状态
+                    if (!_communicationService.IsConnected)
+                    {
+                        _logger.LogWarning("心跳发送过程中MQTT连接断开，停止发送剩余心跳");
+                        break;
+                    }
+
                     var status = _deviceProtocols.TryGetValue(deviceConfig.DeviceCode, out var protocol) && protocol.IsConnected
                         ? DeviceStatus.Online
                         : DeviceStatus.Offline;
 
-                    await _communicationService.SendHeartbeatAsync(deviceConfig.DeviceCode, status, cancellationToken);
+                    var success = await _communicationService.SendHeartbeatAsync(deviceConfig.DeviceCode, status, cancellationToken);
+                    if (success)
+                    {
+                        successCount++;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -218,7 +259,8 @@ public class CollectorService : ICollectorService
                 }
             }
 
-            return true;
+            _logger.LogDebug("心跳发送完成: {SuccessCount}/{TotalCount}", successCount, totalCount);
+            return successCount > 0;
         }
         catch (Exception ex)
         {
@@ -259,30 +301,36 @@ public class CollectorService : ICollectorService
     {
         try
         {
-            var storageStats = await _storageService.GetStatisticsAsync(cancellationToken);
-            var configStats = await _configurationService.GetStatisticsAsync(cancellationToken);
+            var deviceConfigs = await _configurationService.GetAllDeviceConfigsAsync(cancellationToken);
+            var enabledDevices = deviceConfigs.Where(d => d.IsEnabled).ToList();
+            var connectedDevices = enabledDevices.Count(d => 
+                _deviceProtocols.TryGetValue(d.DeviceCode, out var protocol) && protocol.IsConnected);
 
-            var statistics = new CollectorStatistics
+            var stats = await _storageService.GetStatisticsAsync(cancellationToken);
+
+            return new CollectorStatistics
             {
-                TotalDataPoints = storageStats.TotalDataPoints,
-                UnsentDataPoints = storageStats.UnsentDataPoints,
-                SentDataPoints = storageStats.SentDataPoints,
-                DeviceConfigCount = configStats.DeviceConfigCount,
-                EnabledDeviceCount = configStats.EnabledDeviceCount,
-                ConnectedDeviceCount = _deviceProtocols.Count(p => p.Value.IsConnected),
-                RuleCount = configStats.RuleCount,
-                EnabledRuleCount = configStats.EnabledRuleCount,
-                DatabaseSizeBytes = storageStats.DatabaseSizeBytes,
+                TotalDataPoints = stats.TotalDataPoints,
+                UnsentDataPoints = stats.UnsentDataPoints,
+                SentDataPoints = stats.SentDataPoints,
+                DeviceConfigCount = deviceConfigs.Count,
+                EnabledDeviceCount = enabledDevices.Count,
+                ConnectedDeviceCount = connectedDevices,
+                RuleCount = stats.RuleCount,
+                EnabledRuleCount = 0, // 暂时设为0，后续可以从规则引擎获取
+                DatabaseSizeBytes = stats.DatabaseSizeBytes,
                 IsMqttConnected = _communicationService.IsConnected,
                 Timestamp = DateTime.UtcNow
             };
-
-            return statistics;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "获取采集统计信息失败");
-            return new CollectorStatistics();
+            _logger.LogError(ex, "获取统计信息失败");
+            return new CollectorStatistics
+            {
+                Timestamp = DateTime.UtcNow,
+                IsMqttConnected = _communicationService.IsConnected
+            };
         }
     }
 
@@ -357,10 +405,17 @@ public class CollectorService : ICollectorService
                 return;
             }
 
+            // 检查设备连接状态，如果未连接则尝试重连
             if (!protocol.IsConnected)
             {
-                _logger.LogWarning("设备未连接: {DeviceCode}", deviceConfig.DeviceCode);
-                return;
+                _logger.LogWarning("设备未连接，尝试重连: {DeviceCode}", deviceConfig.DeviceCode);
+                var reconnected = await protocol.ConnectAsync(deviceConfig, cancellationToken);
+                if (!reconnected)
+                {
+                    _logger.LogError("设备重连失败: {DeviceCode}", deviceConfig.DeviceCode);
+                    return;
+                }
+                _logger.LogInformation("设备重连成功: {DeviceCode}", deviceConfig.DeviceCode);
             }
 
             // 获取数据点地址
@@ -371,6 +426,7 @@ public class CollectorService : ICollectorService
 
             if (addresses.Length == 0)
             {
+                _logger.LogDebug("设备没有启用的数据点: {DeviceCode}", deviceConfig.DeviceCode);
                 return;
             }
 
@@ -378,6 +434,7 @@ public class CollectorService : ICollectorService
             var dataPoints = await protocol.ReadDataAsync(addresses, cancellationToken);
             if (dataPoints.Count == 0)
             {
+                _logger.LogDebug("设备数据读取为空: {DeviceCode}", deviceConfig.DeviceCode);
                 return;
             }
 
@@ -390,7 +447,11 @@ public class CollectorService : ICollectorService
             // 保存到本地存储
             if (_config.EnableLocalStorage)
             {
-                await _storageService.SaveDataPointsAsync(dataPoints, cancellationToken);
+                var saveSuccess = await _storageService.SaveDataPointsAsync(dataPoints, cancellationToken);
+                if (!saveSuccess)
+                {
+                    _logger.LogWarning("设备数据保存到本地存储失败: {DeviceCode}", deviceConfig.DeviceCode);
+                }
             }
 
             _logger.LogDebug("设备数据采集完成: {DeviceCode}, 数据点数量: {Count}", 
@@ -399,6 +460,17 @@ public class CollectorService : ICollectorService
         catch (Exception ex)
         {
             _logger.LogError(ex, "采集单个设备数据失败: {DeviceCode}", deviceConfig.DeviceCode);
+            
+            // 如果是连接相关错误，标记设备为断开状态
+            if (ex.Message.Contains("connection", StringComparison.OrdinalIgnoreCase) ||
+                ex.Message.Contains("timeout", StringComparison.OrdinalIgnoreCase))
+            {
+                if (_deviceProtocols.TryGetValue(deviceConfig.DeviceCode, out var protocol))
+                {
+                    // 这里可以添加设备断开状态的处理逻辑
+                    _logger.LogWarning("设备连接异常，将在下次采集时尝试重连: {DeviceCode}", deviceConfig.DeviceCode);
+                }
+            }
         }
     }
 

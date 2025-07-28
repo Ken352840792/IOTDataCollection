@@ -10,6 +10,7 @@ using MQTTnet.Client;
 using Newtonsoft.Json;
 using IoTDataCollection.Collector.Core.Interfaces;
 using IoTDataCollection.Collector.Core.Models;
+using System.Linq;
 
 namespace IoTDataCollection.Collector.Communication;
 
@@ -22,6 +23,12 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     private readonly MqttConfiguration _config;
     private readonly IMqttClient _mqttClient;
     private readonly Dictionary<string, Func<string, Task>> _messageHandlers;
+    private readonly Timer _reconnectTimer;
+    private readonly object _lockObject = new object();
+    private bool _isDisposed = false;
+    private bool _isReconnecting = false;
+    private int _reconnectAttempts = 0;
+    private readonly int _maxReconnectAttempts = 10;
 
     public MqttCommunicationService(
         ILogger<MqttCommunicationService> logger,
@@ -34,6 +41,9 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
         // 创建MQTT客户端
         var mqttFactory = new MqttFactory();
         _mqttClient = mqttFactory.CreateMqttClient();
+
+        // 创建重连定时器
+        _reconnectTimer = new Timer(AttemptReconnect, null, Timeout.Infinite, Timeout.Infinite);
 
         // 配置客户端事件
         ConfigureClientEvents();
@@ -59,6 +69,14 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     /// </summary>
     public async Task<bool> ConnectAsync(CancellationToken cancellationToken = default)
     {
+        lock (_lockObject)
+        {
+            if (_isDisposed)
+            {
+                return false;
+            }
+        }
+
         try
         {
             _logger.LogInformation("正在连接到MQTT服务器: {Server}:{Port}", _config.Server, _config.Port);
@@ -75,7 +93,8 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
             // 启动客户端
             await _mqttClient.ConnectAsync(options, cancellationToken);
 
-            _logger.LogInformation("MQTT客户端启动成功");
+            _logger.LogInformation("MQTT客户端连接成功");
+            _reconnectAttempts = 0; // 重置重连计数
             return true;
         }
         catch (Exception ex)
@@ -94,13 +113,16 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
         {
             _logger.LogInformation("正在断开MQTT连接");
 
+            // 停止重连定时器
+            _reconnectTimer.Change(Timeout.Infinite, Timeout.Infinite);
+
             await _mqttClient.DisconnectAsync();
             _logger.LogInformation("MQTT连接已断开");
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "MQTT断开连接失败");
+            _logger.LogError(ex, "断开MQTT连接失败");
             return false;
         }
     }
@@ -110,29 +132,30 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     /// </summary>
     public async Task<bool> PublishAsync(string topic, object payload, int qos = 1, CancellationToken cancellationToken = default)
     {
+        if (!_mqttClient.IsConnected)
+        {
+            _logger.LogWarning("MQTT未连接，无法发布消息: {Topic}", topic);
+            return false;
+        }
+
         try
         {
-            if (!_mqttClient.IsConnected)
-            {
-                _logger.LogWarning("MQTT客户端未连接，无法发布消息");
-                return false;
-            }
-
+            var jsonPayload = JsonConvert.SerializeObject(payload);
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
-                .WithPayload(JsonConvert.SerializeObject(payload))
+                .WithPayload(jsonPayload)
                 .WithQualityOfServiceLevel((MQTTnet.Protocol.MqttQualityOfServiceLevel)qos)
                 .WithRetainFlag(false)
                 .Build();
 
             await _mqttClient.PublishAsync(message, cancellationToken);
 
-            _logger.LogDebug("消息发布成功: {Topic}, QoS: {QoS}", topic, qos);
+            _logger.LogDebug("MQTT消息发布成功: {Topic}, QoS: {QoS}", topic, qos);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "消息发布失败: {Topic}", topic);
+            _logger.LogError(ex, "MQTT消息发布失败: {Topic}", topic);
             return false;
         }
     }
@@ -146,27 +169,25 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
         {
             if (!_mqttClient.IsConnected)
             {
-                _logger.LogWarning("MQTT客户端未连接，无法订阅主题");
+                _logger.LogWarning("MQTT未连接，无法订阅主题: {Topic}", topic);
                 return false;
             }
 
-            // 注册消息处理器
-            _messageHandlers[topic] = handler;
-
-            // 订阅主题
-            var topicFilter = new MqttTopicFilterBuilder()
+            var subscribeOptions = new MqttTopicFilterBuilder()
                 .WithTopic(topic)
                 .WithQualityOfServiceLevel((MQTTnet.Protocol.MqttQualityOfServiceLevel)qos)
                 .Build();
 
-            await _mqttClient.SubscribeAsync(topicFilter);
+            await _mqttClient.SubscribeAsync(subscribeOptions, cancellationToken);
 
-            _logger.LogInformation("主题订阅成功: {Topic}, QoS: {QoS}", topic, qos);
+            _messageHandlers[topic] = handler;
+
+            _logger.LogInformation("MQTT主题订阅成功: {Topic}, QoS: {QoS}", topic, qos);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "主题订阅失败: {Topic}", topic);
+            _logger.LogError(ex, "MQTT主题订阅失败: {Topic}", topic);
             return false;
         }
     }
@@ -180,22 +201,20 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
         {
             if (!_mqttClient.IsConnected)
             {
-                _logger.LogWarning("MQTT客户端未连接，无法取消订阅");
+                _logger.LogWarning("MQTT未连接，无法取消订阅: {Topic}", topic);
                 return false;
             }
 
-            // 移除消息处理器
+            await _mqttClient.UnsubscribeAsync(topic, cancellationToken);
+
             _messageHandlers.Remove(topic);
 
-            // 取消订阅
-            await _mqttClient.UnsubscribeAsync(topic);
-
-            _logger.LogInformation("主题取消订阅成功: {Topic}", topic);
+            _logger.LogInformation("MQTT主题取消订阅成功: {Topic}", topic);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "主题取消订阅失败: {Topic}", topic);
+            _logger.LogError(ex, "MQTT主题取消订阅失败: {Topic}", topic);
             return false;
         }
     }
@@ -205,6 +224,12 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     /// </summary>
     public async Task<bool> SendDeviceDataAsync(string deviceCode, List<DataPoint> dataPoints, CancellationToken cancellationToken = default)
     {
+        if (!_mqttClient.IsConnected)
+        {
+            _logger.LogWarning("MQTT未连接，设备数据将缓存到本地: {DeviceCode}", deviceCode);
+            return false;
+        }
+
         try
         {
             var topic = $"iot/device/{deviceCode}/data";
@@ -212,7 +237,14 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
             {
                 DeviceCode = deviceCode,
                 Timestamp = DateTime.UtcNow,
-                DataPoints = dataPoints
+                DataPoints = dataPoints.Select(dp => new
+                {
+                    PointCode = dp.PointCode,
+                    Value = GetDataPointValue(dp),
+                    Quality = dp.Quality,
+                    Unit = dp.Unit,
+                    Timestamp = dp.Timestamp
+                }).ToList()
             };
 
             return await PublishAsync(topic, payload, 1, cancellationToken);
@@ -229,6 +261,12 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     /// </summary>
     public async Task<bool> SendHeartbeatAsync(string deviceCode, DeviceStatus status, CancellationToken cancellationToken = default)
     {
+        if (!_mqttClient.IsConnected)
+        {
+            _logger.LogDebug("MQTT未连接，跳过心跳发送: {DeviceCode}", deviceCode);
+            return false;
+        }
+
         try
         {
             var topic = $"iot/device/{deviceCode}/heartbeat";
@@ -257,6 +295,8 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
         _mqttClient.ConnectedAsync += async args =>
         {
             _logger.LogInformation("MQTT客户端已连接");
+            _reconnectAttempts = 0; // 重置重连计数
+            
             ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
             {
                 IsConnected = true,
@@ -268,12 +308,20 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
         _mqttClient.DisconnectedAsync += async args =>
         {
             _logger.LogWarning("MQTT客户端已断开连接: {Reason}", args.Reason);
+            
             ConnectionStatusChanged?.Invoke(this, new ConnectionStatusChangedEventArgs
             {
                 IsConnected = false,
                 ErrorMessage = args.Reason.ToString(),
                 Timestamp = DateTime.UtcNow
             });
+
+            // 启动自动重连
+            if (!_isDisposed && !_isReconnecting)
+            {
+                StartReconnectTimer();
+            }
+
             await Task.CompletedTask;
         };
 
@@ -314,6 +362,100 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     }
 
     /// <summary>
+    /// 启动重连定时器
+    /// </summary>
+    private void StartReconnectTimer()
+    {
+        if (_isDisposed || _isReconnecting)
+        {
+            return;
+        }
+
+        _isReconnecting = true;
+        var delay = Math.Min(_config.ReconnectDelaySeconds * (1 << _reconnectAttempts), 300); // 指数退避，最大5分钟
+        
+        _logger.LogInformation("MQTT将在 {Delay} 秒后尝试重连 (第 {Attempt} 次)", delay, _reconnectAttempts + 1);
+        _reconnectTimer.Change((int)(delay * 1000), Timeout.Infinite);
+    }
+
+    /// <summary>
+    /// 尝试重连
+    /// </summary>
+    private async void AttemptReconnect(object? state)
+    {
+        if (_isDisposed)
+        {
+            return;
+        }
+
+        try
+        {
+            _reconnectAttempts++;
+
+            if (_reconnectAttempts > _maxReconnectAttempts)
+            {
+                _logger.LogError("MQTT重连次数超过最大限制 ({MaxAttempts})，停止重连", _maxReconnectAttempts);
+                _isReconnecting = false;
+                return;
+            }
+
+            _logger.LogInformation("正在尝试MQTT重连 (第 {Attempt} 次)", _reconnectAttempts);
+
+            var success = await ConnectAsync();
+            if (success)
+            {
+                _logger.LogInformation("MQTT重连成功");
+                _isReconnecting = false;
+                
+                // 重新订阅之前的主题
+                await ResubscribeTopics();
+            }
+            else
+            {
+                _logger.LogWarning("MQTT重连失败，将继续尝试");
+                StartReconnectTimer(); // 继续重连
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "MQTT重连过程中发生异常");
+            StartReconnectTimer(); // 继续重连
+        }
+    }
+
+    /// <summary>
+    /// 重新订阅之前的主题
+    /// </summary>
+    private async Task ResubscribeTopics()
+    {
+        try
+        {
+            var topics = _messageHandlers.Keys.ToList();
+            foreach (var topic in topics)
+            {
+                try
+                {
+                    var subscribeOptions = new MqttTopicFilterBuilder()
+                        .WithTopic(topic)
+                        .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                        .Build();
+
+                    await _mqttClient.SubscribeAsync(subscribeOptions);
+                    _logger.LogDebug("重新订阅主题成功: {Topic}", topic);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "重新订阅主题失败: {Topic}", topic);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "重新订阅主题过程中发生异常");
+        }
+    }
+
+    /// <summary>
     /// 检查主题是否匹配
     /// </summary>
     private bool IsTopicMatch(string topic, string pattern)
@@ -349,11 +491,52 @@ public class MqttCommunicationService : ICommunicationService, IDisposable
     }
 
     /// <summary>
+    /// 获取数据点值
+    /// </summary>
+    private object GetDataPointValue(DataPoint dp)
+    {
+        if (dp.NumericValue.HasValue)
+        {
+            return dp.NumericValue.Value;
+        }
+        if (!string.IsNullOrEmpty(dp.StringValue))
+        {
+            return dp.StringValue;
+        }
+        if (dp.BooleanValue.HasValue)
+        {
+            return dp.BooleanValue.Value;
+        }
+        if (!string.IsNullOrEmpty(dp.RawValue))
+        {
+            return dp.RawValue;
+        }
+        return null;
+    }
+
+    /// <summary>
     /// 释放资源
     /// </summary>
     public void Dispose()
     {
-        _mqttClient?.Dispose();
+        lock (_lockObject)
+        {
+            if (_isDisposed)
+            {
+                return;
+            }
+            _isDisposed = true;
+        }
+
+        try
+        {
+            _reconnectTimer?.Dispose();
+            _mqttClient?.Dispose();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "释放MQTT资源时发生异常");
+        }
     }
 }
 

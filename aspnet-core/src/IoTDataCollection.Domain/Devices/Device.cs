@@ -132,6 +132,13 @@ public class Device : FullAuditedAggregateRoot<Guid>
     public bool F_IsCollectionEnabled { get; set; } = true;
 
     /// <summary>
+    /// 采集节点编码
+    /// </summary>
+    [StringLength(64)]
+    [Column("F_COLLECTOR_NODE_CODE")]
+    public string? F_CollectorNodeCode { get; set; }
+
+    /// <summary>
     /// 状态 - 0:禁用 1:启用
     /// </summary>
     [Column("F_STATUS")]

@@ -4,12 +4,13 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Serilog;
 using IoTDataCollection.Collector.Console.Services;
 using IoTDataCollection.Collector.Core.Services;
 using IoTDataCollection.Collector.Core.Interfaces;
-using IoTDataCollection.Collector.Storage;
 using IoTDataCollection.Collector.Communication;
+using IoTDataCollection.Collector.Storage;
 using IoTDataCollection.Collector.Rules;
 using IoTDataCollection.Collector.Protocols;
 using IoTDataCollection.Collector.Protocols.PLC;
@@ -95,6 +96,9 @@ public class Program
 
         // 配置采集器
         services.Configure<CollectorConfiguration>(configuration.GetSection("Collector"));
+
+        // 配置HTTP客户端
+        services.Configure<HttpConfiguration>(configuration.GetSection("Http"));
     }
 
     /// <summary>
@@ -102,6 +106,23 @@ public class Program
     /// </summary>
     private static void RegisterCoreServices(IServiceCollection services)
     {
+        // 注册HTTP客户端服务
+        services.AddSingleton<HttpClientService>();
+        
+        // 注册配置同步服务（使用工厂模式创建）
+        services.AddSingleton<IConfigurationSyncService>(provider =>
+        {
+            var logger = provider.GetRequiredService<ILogger<ConfigurationSyncService>>();
+            var httpClientService = provider.GetRequiredService<HttpClientService>();
+            var storageService = provider.GetRequiredService<IStorageService>();
+            var config = provider.GetRequiredService<IOptions<CollectorConfiguration>>();
+            
+            // 从配置中获取采集端节点编码，如果没有则使用默认值
+            var collectorNodeCode = config.Value.CollectorNodeCode ?? "COLLECTOR_001";
+            
+            return new ConfigurationSyncService(logger, httpClientService, storageService, collectorNodeCode);
+        });
+        
         services.AddSingleton<IConfigurationService, ConfigurationService>();
         services.AddSingleton<ICollectorService, CollectorService>();
     }
@@ -112,7 +133,14 @@ public class Program
     private static void RegisterProtocolServices(IServiceCollection services)
     {
         services.AddScoped<IProtocolFactory, ProtocolFactory>();
-        services.AddScoped<PlcProtocolAdapter>();
+        
+        // 注册所有PLC适配器为Transient，确保每个设备都有独立的实例
+        services.AddTransient<SiemensS7_1200Adapter>();
+        services.AddTransient<SiemensS7_1500Adapter>();
+        services.AddTransient<SiemensS7_200Adapter>();
+        services.AddTransient<SiemensS7_200SmartAdapter>();
+        services.AddTransient<SiemensS7_300Adapter>();
+        services.AddTransient<SiemensS7_400Adapter>();
     }
 
     /// <summary>
@@ -145,6 +173,7 @@ public class Program
     private static void RegisterBackgroundServices(IServiceCollection services)
     {
         services.AddHostedService<CollectorHostedService>();
+        services.AddHostedService<NetworkMonitorService>();
     }
 }
 
@@ -153,6 +182,11 @@ public class Program
 /// </summary>
 public class CollectorConfiguration
 {
+    /// <summary>
+    /// 采集端节点编码
+    /// </summary>
+    public string CollectorNodeCode { get; set; } = "COLLECTOR_001";
+
     /// <summary>
     /// 采集间隔（秒）
     /// </summary>
@@ -167,6 +201,11 @@ public class CollectorConfiguration
     /// 数据发送间隔（秒）
     /// </summary>
     public int DataSendIntervalSeconds { get; set; } = 10;
+
+    /// <summary>
+    /// 配置同步间隔（秒）
+    /// </summary>
+    public int ConfigSyncIntervalSeconds { get; set; } = 300; // 5分钟
 
     /// <summary>
     /// 最大重试次数
@@ -192,4 +231,9 @@ public class CollectorConfiguration
     /// 是否启用MQTT通信
     /// </summary>
     public bool EnableMqttCommunication { get; set; } = true;
+
+    /// <summary>
+    /// 是否启用配置同步
+    /// </summary>
+    public bool EnableConfigSync { get; set; } = true;
 } 

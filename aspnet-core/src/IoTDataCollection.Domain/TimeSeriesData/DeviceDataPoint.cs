@@ -5,8 +5,8 @@ namespace IoTDataCollection.TimeSeriesData;
 
 /// <summary>
 /// 设备数据点时序数据模型 - 用于InfluxDB存储
+/// 每个设备一个独立的Measurement
 /// </summary>
-[Measurement("device_data")]
 public class DeviceDataPoint
 {
     /// <summary>
@@ -44,39 +44,9 @@ public class DeviceDataPoint
     /// </summary>
     [Column("data_type", IsTag = true)]
     public string DataType { get; set; } = string.Empty;
-
+     
     /// <summary>
-    /// 数值类型的值 - Field字段，存储数值
-    /// </summary>
-    [Column("numeric_value")]
-    public double? NumericValue { get; set; }
-
-    /// <summary>
-    /// 字符串类型的值 - Field字段，存储文本
-    /// </summary>
-    [Column("string_value")]
-    public string? StringValue { get; set; }
-
-    /// <summary>
-    /// 布尔类型的值 - Field字段，存储布尔值
-    /// </summary>
-    [Column("boolean_value")]
-    public bool? BooleanValue { get; set; }
-
-    /// <summary>
-    /// 原始值 - Field字段，存储原始采集值
-    /// </summary>
-    [Column("raw_value")]
-    public string? RawValue { get; set; }
-
-    /// <summary>
-    /// 质量标记 - Field字段，数据质量标识
-    /// </summary>
-    [Column("quality")]
-    public int Quality { get; set; } = 192; // 192表示数据良好
-
-    /// <summary>
-    /// 单位 - Tag字段，数据单位
+    /// 数据单位 - Tag字段，数据单位
     /// </summary>
     [Column("unit", IsTag = true)]
     public string? Unit { get; set; }
@@ -86,4 +56,56 @@ public class DeviceDataPoint
     /// </summary>
     [Column("collector_node", IsTag = true)]
     public string? CollectorNode { get; set; }
+
+    /// <summary>
+    /// 原始值 - Field字段，存储从设备直接采集的原始值
+    /// </summary>
+    [Column("raw_value")]
+    public string RawValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 计算后的值 - Field字段，存储经过计算处理后的值
+    /// </summary>
+    [Column("calculated_value")]
+    public string CalculatedValue { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 质量标记 - Field字段，数据质量标识
+    /// </summary>
+    [Column("quality")]
+    public int Quality { get; set; } = 192; // 192表示数据良好
+
+    /// <summary>
+    /// 处理时间 - Field字段，数据处理时间戳
+    /// </summary>
+    [Column("processed_time")]
+    public DateTime ProcessedTime { get; set; }
+
+    /// <summary>
+    /// 获取Measurement名称 - 基于设备编码动态生成
+    /// </summary>
+    /// <param name="deviceCode">设备编码</param>
+    /// <returns>Measurement名称</returns>
+    public static string GetMeasurementName(string deviceCode)
+    {
+        // 确保设备编码符合InfluxDB命名规范
+        // 替换特殊字符为下划线，确保名称合法
+        var measurementName = deviceCode
+            .Replace("-", "_")
+            .Replace(".", "_")
+            .Replace(" ", "_")
+            .ToLowerInvariant();
+        
+        // 添加前缀以区分设备数据
+        return $"device_{measurementName}";
+    }
+
+    /// <summary>
+    /// 获取当前实例的Measurement名称
+    /// </summary>
+    /// <returns>Measurement名称</returns>
+    public string GetMeasurementName()
+    {
+        return GetMeasurementName(DeviceCode);
+    }
 } 

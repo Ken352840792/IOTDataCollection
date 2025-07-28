@@ -77,6 +77,9 @@ public class SqliteStorageService : IStorageService, IDisposable
 
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             using var transaction = _connection.BeginTransaction();
             try
             {
@@ -135,6 +138,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, DeviceCode, PointCode, PointName, Address, DataType,
@@ -202,6 +208,9 @@ public class SqliteStorageService : IStorageService, IDisposable
 
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 UPDATE DataPoints 
@@ -231,6 +240,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
 
             var command = _connection.CreateCommand();
@@ -255,6 +267,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 INSERT OR REPLACE INTO DeviceConfigs (DeviceCode, DeviceName, DeviceType, ConnectionConfig, 
@@ -290,6 +305,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT DeviceCode, DeviceName, DeviceType, ConnectionConfig, 
@@ -339,6 +357,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT DeviceCode, DeviceName, DeviceType, ConnectionConfig, 
@@ -387,6 +408,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 INSERT OR REPLACE INTO Rules (Id, Name, Description, Code, IsEnabled, CreatedAt, UpdatedAt, Version)
@@ -419,6 +443,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, Name, Description, Code, IsEnabled, CreatedAt, UpdatedAt, Version
@@ -459,6 +486,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = @"
                 SELECT Id, Name, Description, Code, IsEnabled, CreatedAt, UpdatedAt, Version
@@ -498,6 +528,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var command = _connection.CreateCommand();
             command.CommandText = "DELETE FROM Rules WHERE Id = @RuleId";
             command.Parameters.AddWithValue("@RuleId", ruleId);
@@ -520,6 +553,9 @@ public class SqliteStorageService : IStorageService, IDisposable
     {
         try
         {
+            // 确保连接已打开
+            await EnsureConnectionOpenAsync(cancellationToken);
+
             var statistics = new StorageStatistics();
 
             // 获取数据点统计
@@ -566,6 +602,18 @@ public class SqliteStorageService : IStorageService, IDisposable
         {
             _logger.LogError(ex, "获取存储统计信息失败");
             return new StorageStatistics();
+        }
+    }
+
+    /// <summary>
+    /// 确保连接已打开
+    /// </summary>
+    private async Task EnsureConnectionOpenAsync(CancellationToken cancellationToken)
+    {
+        if (_connection.State != System.Data.ConnectionState.Open)
+        {
+            _logger.LogDebug("数据库连接未打开，正在重新打开连接");
+            await _connection.OpenAsync(cancellationToken);
         }
     }
 

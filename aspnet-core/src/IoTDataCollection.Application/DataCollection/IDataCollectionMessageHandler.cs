@@ -25,6 +25,14 @@ public interface IDataCollectionMessageHandler
     /// <param name="cancellationToken">取消令牌</param>
     /// <returns>处理结果</returns>
     Task<MessageProcessingResult> ProcessCollectorStatusMessageAsync(CollectorStatusMessage message, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 处理设备心跳消息
+    /// </summary>
+    /// <param name="message">心跳消息</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>处理结果</returns>
+    Task<MessageProcessingResult> ProcessDeviceHeartbeatMessageAsync(DeviceHeartbeatMessage message, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -98,6 +106,11 @@ public class DataPointMessage
     /// 数据点编码
     /// </summary>
     public string PointCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 通用值字段 - 支持所有数据类型
+    /// </summary>
+    public object? Value { get; set; }
 
     /// <summary>
     /// 数值
@@ -190,4 +203,25 @@ public class SystemResourceInfo
     /// 网络连接状态
     /// </summary>
     public bool NetworkConnected { get; set; }
+}
+
+/// <summary>
+/// 设备心跳消息
+/// </summary>
+public class DeviceHeartbeatMessage
+{
+    /// <summary>
+    /// 设备编码
+    /// </summary>
+    public string DeviceCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 设备状态
+    /// </summary>
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 时间戳
+    /// </summary>
+    public DateTime Timestamp { get; set; }
 } 

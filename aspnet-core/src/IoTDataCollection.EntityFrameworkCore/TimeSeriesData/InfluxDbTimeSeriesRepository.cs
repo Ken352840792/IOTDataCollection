@@ -50,10 +50,27 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         try
         {
             var writeApi = _influxDbClient.GetWriteApiAsync();
-            await writeApi.WriteMeasurementAsync(dataPoint, WritePrecision.Ms, _businessBucket, _organization, cancellationToken);
+            var measurementName = dataPoint.GetMeasurementName();
             
-            _logger.LogDebug("写入设备数据点成功: {DeviceCode}.{PointCode} = {Value}", 
-                dataPoint.DeviceCode, dataPoint.PointCode, dataPoint.NumericValue?.ToString() ?? dataPoint.StringValue);
+            // 使用PointData动态创建数据点，指定Measurement名称
+            var point = PointData
+                .Measurement(measurementName)
+                .Tag("device_code", dataPoint.DeviceCode)
+                .Tag("site_code", dataPoint.SiteCode)
+                .Tag("point_code", dataPoint.PointCode)
+                .Tag("point_name", dataPoint.PointName)
+                .Tag("data_type", dataPoint.DataType)
+                .Tag("unit", dataPoint.Unit ?? "")
+                .Tag("collector_node", dataPoint.CollectorNode ?? "")
+                .Field("raw_value", dataPoint.RawValue)
+                .Field("calculated_value", dataPoint.CalculatedValue)
+                .Field("quality", dataPoint.Quality)
+                .Timestamp(dataPoint.Timestamp, WritePrecision.Ms);
+            
+            await writeApi.WritePointAsync(point, _businessBucket, _organization, cancellationToken);
+            
+            _logger.LogDebug("写入设备数据点成功: {DeviceCode}.{PointCode} = {Value} (Measurement: {Measurement})", 
+                dataPoint.DeviceCode, dataPoint.PointCode, dataPoint.RawValue, measurementName);
         }
         catch (Exception ex)
         {
@@ -63,21 +80,52 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
         }
     }
 
-            public async Task WriteDeviceDataPointsAsync(IEnumerable<DeviceDataPoint> dataPoints, CancellationToken cancellationToken = default)
+    public async Task WriteDeviceDataPointsAsync(IEnumerable<DeviceDataPoint> dataPoints, CancellationToken cancellationToken = default)
+    {
+        try
         {
-            try
+            var writeApi = _influxDbClient.GetWriteApiAsync();
+            
+            // 按设备分组，每个设备使用独立的Measurement
+            var deviceGroups = dataPoints.GroupBy(dp => dp.DeviceCode);
+            
+            foreach (var deviceGroup in deviceGroups)
             {
-                var writeApi = _influxDbClient.GetWriteApiAsync();
-                await writeApi.WriteMeasurementsAsync<DeviceDataPoint>(dataPoints.ToList(), WritePrecision.Ms, _businessBucket, _organization, cancellationToken);
+                var deviceDataPoints = deviceGroup.ToList();
+                var points = new List<PointData>();
                 
-                _logger.LogDebug("批量写入设备数据点成功，数量: {Count}", dataPoints.Count());
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "批量写入设备数据点失败，数量: {Count}", dataPoints.Count());
-                throw;
+                foreach (var dataPoint in deviceDataPoints)
+                {
+                    var measurementName = dataPoint.GetMeasurementName();
+                    var point = PointData
+                        .Measurement(measurementName)
+                        .Tag("device_code", dataPoint.DeviceCode)
+                        .Tag("site_code", dataPoint.SiteCode)
+                        .Tag("point_code", dataPoint.PointCode)
+                        .Tag("point_name", dataPoint.PointName)
+                        .Tag("data_type", dataPoint.DataType)
+                        .Tag("unit", dataPoint.Unit ?? "")
+                        .Tag("collector_node", dataPoint.CollectorNode ?? "")
+                        .Field("raw_value", dataPoint.RawValue)
+                        .Field("calculated_value", dataPoint.CalculatedValue)
+                        .Field("quality", dataPoint.Quality)
+                        .Timestamp(dataPoint.Timestamp, WritePrecision.Ms);
+                    
+                    points.Add(point);
+                }
+                
+                await writeApi.WritePointsAsync(points, _businessBucket, _organization, cancellationToken);
+                
+                _logger.LogDebug("批量写入设备数据点成功，设备: {DeviceCode}, 数量: {Count}", 
+                    deviceGroup.Key, deviceDataPoints.Count);
             }
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "批量写入设备数据点失败，数量: {Count}", dataPoints.Count());
+            throw;
+        }
+    }
 
     public async Task<List<DeviceDataPoint>> QueryDeviceDataAsync(
         string deviceCode, 
@@ -88,10 +136,11 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
     {
         try
         {
+            var measurementName = DeviceDataPoint.GetMeasurementName(deviceCode);
             var query = $@"
                 from(bucket: ""{_businessBucket}"")
                   |> range(start: {startTime:yyyy-MM-ddTHH:mm:ssZ}, stop: {endTime:yyyy-MM-ddTHH:mm:ssZ})
-                  |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
+                  |> filter(fn: (r) => r[""_measurement""] == ""{measurementName}"")
                   |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
                   |> filter(fn: (r) => r[""point_code""] == ""{pointCode}"")
                   |> sort(columns: [""_time""])";
@@ -99,8 +148,8 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
             var queryApi = _influxDbClient.GetQueryApi();
             var result = await queryApi.QueryAsync<DeviceDataPoint>(query, _organization, cancellationToken);
             
-            _logger.LogDebug("查询设备数据成功: {DeviceCode}.{PointCode}, 记录数: {Count}", 
-                deviceCode, pointCode, result.Count);
+            _logger.LogDebug("查询设备数据成功: {DeviceCode}.{PointCode}, Measurement: {Measurement}, 记录数: {Count}", 
+                deviceCode, pointCode, measurementName, result.Count);
             
             return result;
         }
@@ -118,10 +167,11 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
     {
         try
         {
+            var measurementName = DeviceDataPoint.GetMeasurementName(deviceCode);
             var query = $@"
                 from(bucket: ""{_businessBucket}"")
                   |> range(start: -24h)
-                  |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
+                  |> filter(fn: (r) => r[""_measurement""] == ""{measurementName}"")
                   |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
                   |> filter(fn: (r) => r[""point_code""] == ""{pointCode}"")
                   |> last()";
@@ -129,11 +179,15 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
             var queryApi = _influxDbClient.GetQueryApi();
             var result = await queryApi.QueryAsync<DeviceDataPoint>(query, _organization, cancellationToken);
             
-            return result.FirstOrDefault();
+            var latestData = result.FirstOrDefault();
+            _logger.LogDebug("查询最新设备数据: {DeviceCode}.{PointCode}, Measurement: {Measurement}, 结果: {HasData}", 
+                deviceCode, pointCode, measurementName, latestData != null);
+            
+            return latestData;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "查询设备最新数据失败: {DeviceCode}.{PointCode}", deviceCode, pointCode);
+            _logger.LogError(ex, "查询最新设备数据失败: {DeviceCode}.{PointCode}", deviceCode, pointCode);
             throw;
         }
     }
@@ -175,13 +229,14 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
     {
         try
         {
+            var measurementName = DeviceDataPoint.GetMeasurementName(deviceCode);
             var query = $@"
                 data = from(bucket: ""{_businessBucket}"")
                   |> range(start: {startTime:yyyy-MM-ddTHH:mm:ssZ}, stop: {endTime:yyyy-MM-ddTHH:mm:ssZ})
-                  |> filter(fn: (r) => r[""_measurement""] == ""device_data"")
+                  |> filter(fn: (r) => r[""_measurement""] == ""{measurementName}"")
                   |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
                   |> filter(fn: (r) => r[""point_code""] == ""{pointCode}"")
-                  |> filter(fn: (r) => r[""_field""] == ""numeric_value"")
+                  |> filter(fn: (r) => r[""_field""] == ""calculated_value"")
 
                 count = data |> count() |> yield(name: ""count"")
                 min = data |> min() |> yield(name: ""min"")  
@@ -203,30 +258,35 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
                     var value = record.GetValue();
                     var time = record.GetTime();
 
-                    switch (resultName)
+                    switch (resultName?.ToString())
                     {
                         case "count":
-                            statistics.Count = Convert.ToInt64(value);
+                            if (value is long count) statistics.Count = (int)count;
                             break;
                         case "min":
-                            statistics.MinValue = Convert.ToDouble(value);
+                            if (value is double min) statistics.MinValue = min;
                             break;
                         case "max":
-                            statistics.MaxValue = Convert.ToDouble(value);
+                            if (value is double max) statistics.MaxValue = max;
                             break;
                         case "mean":
-                            statistics.AverageValue = Convert.ToDouble(value);
+                            if (value is double mean) statistics.AverageValue = mean;
                             break;
                         case "first":
-                            statistics.FirstTime = time?.ToDateTimeUtc();
+                            if (value is double first) statistics.FirstValue = first;
+                            if (time.HasValue) statistics.FirstTime = time.Value.ToDateTimeUtc();
                             break;
                         case "last":
-                            statistics.LastTime = time?.ToDateTimeUtc();
+                            if (value is double last) statistics.LastValue = last;
+                            if (time.HasValue) statistics.LastTime = time.Value.ToDateTimeUtc();
                             break;
                     }
                 }
             }
 
+            _logger.LogDebug("查询设备数据统计成功: {DeviceCode}.{PointCode}, Measurement: {Measurement}, 记录数: {Count}", 
+                deviceCode, pointCode, measurementName, statistics.Count);
+            
             return statistics;
         }
         catch (Exception ex)
@@ -436,6 +496,84 @@ public class InfluxDbTimeSeriesRepository : ITimeSeriesRepository, ITransientDep
     }
 
     #endregion
+
+    /// <summary>
+    /// 查询所有设备的Measurement列表
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>设备Measurement列表</returns>
+    public async Task<List<string>> QueryDeviceMeasurementsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var query = $@"
+                import ""influxdata/influxdb/schema""
+                schema.measurements(bucket: ""{_businessBucket}"")";
+
+            var queryApi = _influxDbClient.GetQueryApi();
+            var tables = await queryApi.QueryAsync(query, _organization, cancellationToken);
+
+            var measurements = new List<string>();
+            foreach (var table in tables)
+            {
+                foreach (var record in table.Records)
+                {
+                    var measurementName = record.GetValue()?.ToString();
+                    if (!string.IsNullOrEmpty(measurementName) && measurementName.StartsWith("device_"))
+                    {
+                        measurements.Add(measurementName);
+                    }
+                }
+            }
+
+            _logger.LogDebug("查询设备Measurement列表成功，数量: {Count}", measurements.Count);
+            return measurements;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "查询设备Measurement列表失败");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// 查询指定设备的所有数据点
+    /// </summary>
+    /// <param name="deviceCode">设备编码</param>
+    /// <param name="startTime">开始时间</param>
+    /// <param name="endTime">结束时间</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>设备数据点列表</returns>
+    public async Task<List<DeviceDataPoint>> QueryDeviceAllDataAsync(
+        string deviceCode,
+        DateTime startTime,
+        DateTime endTime,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var measurementName = DeviceDataPoint.GetMeasurementName(deviceCode);
+            var query = $@"
+                from(bucket: ""{_businessBucket}"")
+                  |> range(start: {startTime:yyyy-MM-ddTHH:mm:ssZ}, stop: {endTime:yyyy-MM-ddTHH:mm:ssZ})
+                  |> filter(fn: (r) => r[""_measurement""] == ""{measurementName}"")
+                  |> filter(fn: (r) => r[""device_code""] == ""{deviceCode}"")
+                  |> sort(columns: [""_time""])";
+
+            var queryApi = _influxDbClient.GetQueryApi();
+            var result = await queryApi.QueryAsync<DeviceDataPoint>(query, _organization, cancellationToken);
+            
+            _logger.LogDebug("查询设备所有数据成功: {DeviceCode}, Measurement: {Measurement}, 记录数: {Count}", 
+                deviceCode, measurementName, result.Count);
+            
+            return result;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "查询设备所有数据失败: {DeviceCode}", deviceCode);
+            throw;
+        }
+    }
 
     public void Dispose()
     {

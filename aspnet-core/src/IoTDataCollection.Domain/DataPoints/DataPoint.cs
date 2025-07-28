@@ -43,10 +43,11 @@ public class DataPoint : FullAuditedAggregateRoot<Guid>
     public string F_DataType { get; set; }
 
     /// <summary>
-    /// 寄存器地址 - Modbus寄存器地址
+    /// 寄存器地址 - 支持各种协议的地址格式，如Modbus的"40001"、Siemens S7的"DB1.DBD0"等
     /// </summary>
+    [StringLength(100)]
     [Column("F_REGISTER_ADDRESS")]
-    public int? F_RegisterAddress { get; set; }
+    public string? F_RegisterAddress { get; set; }
 
     /// <summary>
     /// 寄存器类型 - 保持寄存器、输入寄存器、线圈、离散输入
@@ -217,7 +218,7 @@ public class DataPoint : FullAuditedAggregateRoot<Guid>
         string pointCode,
         string pointName,
         string dataType,
-        int? registerAddress = null,
+        string? registerAddress = null,
         string? registerType = null) : base(id)
     {
         F_DeviceId = deviceId;

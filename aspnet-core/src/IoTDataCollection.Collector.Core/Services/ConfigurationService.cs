@@ -16,15 +16,18 @@ public class ConfigurationService : IConfigurationService
 {
     private readonly ILogger<ConfigurationService> _logger;
     private readonly IStorageService _storageService;
+    private readonly IConfigurationSyncService? _configurationSyncService;
     private readonly Dictionary<string, DeviceConfig> _deviceConfigCache;
     private readonly Dictionary<string, RuleInfo> _ruleCache;
 
     public ConfigurationService(
         ILogger<ConfigurationService> logger,
-        IStorageService storageService)
+        IStorageService storageService,
+        IConfigurationSyncService? configurationSyncService = null)
     {
         _logger = logger;
         _storageService = storageService;
+        _configurationSyncService = configurationSyncService;
         _deviceConfigCache = new Dictionary<string, DeviceConfig>();
         _ruleCache = new Dictionary<string, RuleInfo>();
     }
@@ -37,6 +40,20 @@ public class ConfigurationService : IConfigurationService
         try
         {
             _logger.LogInformation("初始化配置管理服务");
+
+            // 尝试从中心系统同步配置
+            if (_configurationSyncService != null)
+            {
+                try
+                {
+                    var syncedConfigs = await _configurationSyncService.SyncConfigurationsFromCenterAsync(cancellationToken);
+                    _logger.LogInformation("从中心系统同步配置完成，设备数量: {Count}", syncedConfigs.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "从中心系统同步配置失败，将使用本地配置");
+                }
+            }
 
             // 加载设备配置到缓存
             var deviceConfigs = await _storageService.GetAllDeviceConfigsAsync(cancellationToken);
@@ -274,6 +291,20 @@ public class ConfigurationService : IConfigurationService
         try
         {
             _logger.LogInformation("刷新配置缓存");
+
+            // 尝试从中心系统同步最新配置
+            if (_configurationSyncService != null)
+            {
+                try
+                {
+                    var syncedConfigs = await _configurationSyncService.SyncConfigurationsFromCenterAsync(cancellationToken);
+                    _logger.LogInformation("从中心系统同步最新配置完成，设备数量: {Count}", syncedConfigs.Count);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "从中心系统同步最新配置失败");
+                }
+            }
 
             // 清空缓存
             _deviceConfigCache.Clear();

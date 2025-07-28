@@ -39,6 +39,11 @@ public class DataCollectionMessageSubscriptionOptions
     public string DeviceDataTopic { get; set; } = "iot/device/data";
 
     /// <summary>
+    /// 设备心跳主题
+    /// </summary>
+    public string DeviceHeartbeatTopic { get; set; } = "iot/device/+/heartbeat";
+
+    /// <summary>
     /// 采集端状态主题
     /// </summary>
     public string CollectorStatusTopic { get; set; } = "iot/collector/status";
@@ -145,6 +150,14 @@ public class DataCollectionMessageSubscriptionService : BackgroundService
         await _mqttClient.SubscribeAsync(deviceDataSubscribeOptions, cancellationToken);
         _logger.LogInformation("已订阅设备数据主题: {Topic}", _options.DeviceDataTopic);
 
+        // 订阅设备心跳主题
+        var deviceHeartbeatSubscribeOptions = new MqttTopicFilterBuilder()
+            .WithTopic(_options.DeviceHeartbeatTopic)
+            .Build();
+
+        await _mqttClient.SubscribeAsync(deviceHeartbeatSubscribeOptions, cancellationToken);
+        _logger.LogInformation("已订阅设备心跳主题: {Topic}", _options.DeviceHeartbeatTopic);
+
         // 订阅采集端状态主题
         var collectorStatusSubscribeOptions = new MqttTopicFilterBuilder()
             .WithTopic(_options.CollectorStatusTopic)
@@ -178,9 +191,17 @@ public class DataCollectionMessageSubscriptionService : BackgroundService
             using var scope = _serviceProvider.CreateScope();
             var messageHandler = scope.ServiceProvider.GetRequiredService<IDataCollectionMessageHandler>();
 
-            if (topic == _options.DeviceDataTopic)
+            // 检查是否是设备数据主题 (iot/device/{deviceCode}/data)
+            if (IsDeviceDataTopic(topic))
             {
-                await ProcessDeviceDataMessageAsync(payload, messageHandler);
+                var deviceCode = ExtractDeviceCodeFromTopic(topic);
+                await ProcessDeviceDataMessageAsync(payload, messageHandler, deviceCode);
+            }
+            // 检查是否是设备心跳主题 (iot/device/{deviceCode}/heartbeat)
+            else if (IsDeviceHeartbeatTopic(topic))
+            {
+                var deviceCode = ExtractDeviceCodeFromTopic(topic);
+                await ProcessDeviceHeartbeatMessageAsync(payload, messageHandler, deviceCode);
             }
             else if (topic == _options.CollectorStatusTopic)
             {
@@ -199,23 +220,111 @@ public class DataCollectionMessageSubscriptionService : BackgroundService
         await Task.CompletedTask;
     }
 
-    private async Task ProcessDeviceDataMessageAsync(string payload, IDataCollectionMessageHandler messageHandler)
+    /// <summary>
+    /// 检查是否是设备数据主题
+    /// </summary>
+    private bool IsDeviceDataTopic(string topic)
+    {
+        // 检查主题格式: iot/device/{deviceCode}/data
+        var parts = topic.Split('/');
+        return parts.Length == 4 && 
+               parts[0] == "iot" && 
+               parts[1] == "device" && 
+               parts[3] == "data";
+    }
+
+    /// <summary>
+    /// 检查是否是设备心跳主题
+    /// </summary>
+    private bool IsDeviceHeartbeatTopic(string topic)
+    {
+        // 检查主题格式: iot/device/{deviceCode}/heartbeat
+        var parts = topic.Split('/');
+        return parts.Length == 4 && 
+               parts[0] == "iot" && 
+               parts[1] == "device" && 
+               parts[3] == "heartbeat";
+    }
+
+    /// <summary>
+    /// 从主题中提取设备编码
+    /// </summary>
+    private string ExtractDeviceCodeFromTopic(string topic)
+    {
+        var parts = topic.Split('/');
+        return parts[2]; // iot/device/{deviceCode}/data 中的 deviceCode
+    }
+
+    private async Task ProcessDeviceDataMessageAsync(string payload, IDataCollectionMessageHandler messageHandler, string deviceCode)
     {
         try
         {
+            _logger.LogDebug("处理设备数据消息: {DeviceCode}", deviceCode);
+            
             var message = JsonConvert.DeserializeObject<DeviceDataMessage>(payload);
             if (message != null)
             {
+                // 确保消息中的设备编码与主题中的一致
+                if (string.IsNullOrEmpty(message.DeviceCode))
+                {
+                    message.DeviceCode = deviceCode;
+                }
+                else if (message.DeviceCode != deviceCode)
+                {
+                    _logger.LogWarning("消息中的设备编码与主题不匹配: 主题={TopicDeviceCode}, 消息={MessageDeviceCode}", 
+                        deviceCode, message.DeviceCode);
+                }
+
                 var result = await messageHandler.ProcessDeviceDataMessageAsync(message);
                 if (!result.Success)
                 {
-                    _logger.LogError("处理设备数据消息失败: {Error}", result.ErrorMessage);
+                    _logger.LogError("处理设备数据消息失败: {DeviceCode}, 错误: {Error}", deviceCode, result.ErrorMessage);
+                }
+                else
+                {
+                    _logger.LogDebug("设备数据消息处理成功: {DeviceCode}", deviceCode);
                 }
             }
         }
         catch (JsonException ex)
         {
-            _logger.LogError(ex, "解析设备数据消息JSON失败");
+            _logger.LogError(ex, "解析设备数据消息JSON失败: {DeviceCode}", deviceCode);
+        }
+    }
+
+    private async Task ProcessDeviceHeartbeatMessageAsync(string payload, IDataCollectionMessageHandler messageHandler, string deviceCode)
+    {
+        try
+        {
+            _logger.LogDebug("处理设备心跳消息: {DeviceCode}", deviceCode);
+            var message = JsonConvert.DeserializeObject<DeviceHeartbeatMessage>(payload);
+            if (message != null)
+            {
+                // 确保消息中的设备编码与主题中的一致
+                if (string.IsNullOrEmpty(message.DeviceCode))
+                {
+                    message.DeviceCode = deviceCode;
+                }
+                else if (message.DeviceCode != deviceCode)
+                {
+                    _logger.LogWarning("心跳消息中的设备编码与主题不匹配: 主题={TopicDeviceCode}, 消息={MessageDeviceCode}", 
+                        deviceCode, message.DeviceCode);
+                }
+
+                var result = await messageHandler.ProcessDeviceHeartbeatMessageAsync(message);
+                if (!result.Success)
+                {
+                    _logger.LogError("处理设备心跳消息失败: {DeviceCode}, 错误: {Error}", deviceCode, result.ErrorMessage);
+                }
+                else
+                {
+                    _logger.LogDebug("设备心跳消息处理成功: {DeviceCode}, 状态: {Status}", deviceCode, message.Status);
+                }
+            }
+        }
+        catch (JsonException ex)
+        {
+            _logger.LogError(ex, "解析设备心跳消息JSON失败: {DeviceCode}", deviceCode);
         }
     }
 

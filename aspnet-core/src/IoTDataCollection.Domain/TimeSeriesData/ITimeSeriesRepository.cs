@@ -82,6 +82,27 @@ public interface ITimeSeriesRepository
         DateTime endTime, 
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// 查询所有设备的Measurement列表
+    /// </summary>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>设备Measurement列表</returns>
+    Task<List<string>> QueryDeviceMeasurementsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 查询指定设备的所有数据点
+    /// </summary>
+    /// <param name="deviceCode">设备编码</param>
+    /// <param name="startTime">开始时间</param>
+    /// <param name="endTime">结束时间</param>
+    /// <param name="cancellationToken">取消令牌</param>
+    /// <returns>设备数据点列表</returns>
+    Task<List<DeviceDataPoint>> QueryDeviceAllDataAsync(
+        string deviceCode,
+        DateTime startTime,
+        DateTime endTime,
+        CancellationToken cancellationToken = default);
+
     #endregion
 
     #region 系统监控数据操作
@@ -187,6 +208,16 @@ public class DeviceDataStatistics
     /// 平均值
     /// </summary>
     public double? AverageValue { get; set; }
+
+    /// <summary>
+    /// 第一个值
+    /// </summary>
+    public double? FirstValue { get; set; }
+
+    /// <summary>
+    /// 最后一个值
+    /// </summary>
+    public double? LastValue { get; set; }
 
     /// <summary>
     /// 第一个值的时间戳

@@ -78,10 +78,12 @@ public class DatabaseConnectionTests : IoTDataCollectionEntityFrameworkCoreTestB
             {
                 DeviceCode = deviceCode,
                 PointCode = pointCode,
-                NumericValue = testValue,
+                RawValue = testValue.ToString(),
+                CalculatedValue = testValue.ToString(),
                 Timestamp = DateTime.UtcNow,
                 Quality = 192,
-                CollectorNode = "test"
+                CollectorNode = "test",
+                Unit = "°C" // 添加单位信息
             };
 
             await _timeSeriesRepository.WriteDeviceDataPointAsync(dataPoint);
@@ -246,10 +248,12 @@ public class DatabaseConnectionTests : IoTDataCollectionEntityFrameworkCoreTestB
             {
                 DeviceCode = deviceCode,
                 PointCode = pointCode,
-                NumericValue = testValue,
+                RawValue = testValue.ToString(),
+                CalculatedValue = testValue.ToString(),
                 Timestamp = DateTime.UtcNow,
                 Quality = 192,
-                CollectorNode = "init_test"
+                CollectorNode = "init_test",
+                Unit = "m³/h" // 添加单位信息
             };
 
             await _timeSeriesRepository.WriteDeviceDataPointAsync(dataPoint);

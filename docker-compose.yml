@@ -59,7 +59,7 @@ services:
       - DOCKER_INFLUXDB_INIT_USERNAME=admin
       - DOCKER_INFLUXDB_INIT_PASSWORD=iot123456
       - DOCKER_INFLUXDB_INIT_ORG=IOTDataCollection
-      - DOCKER_INFLUXDB_INIT_BUCKET=iot_data
+      - DOCKER_INFLUXDB_INIT_BUCKET=iot_data_business
       - DOCKER_INFLUXDB_INIT_RETENTION=30d
       - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=iot-admin-token-12345678901234567890
     ports:
@@ -67,10 +67,24 @@ services:
     volumes:
       - influxdb_data:/var/lib/influxdb2
       - influxdb_config:/etc/influxdb2
+      - ./scripts/influxdb:/docker-entrypoint-initdb.d
     networks:
       - iot_network
 
-  
+  # MQTT消息代理服务（可选，用于实时数据通信）
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: iot-mqtt
+    restart: always
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - mqtt_data:/mosquitto/data
+      - mqtt_logs:/mosquitto/log
+      - ./mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - iot_network
 
 volumes:
   mysql_data:
@@ -78,7 +92,8 @@ volumes:
   redis_data:
   influxdb_data:
   influxdb_config:
-  nanomq_data:
+  mqtt_data:
+  mqtt_logs:
 
 networks:
   iot_network:

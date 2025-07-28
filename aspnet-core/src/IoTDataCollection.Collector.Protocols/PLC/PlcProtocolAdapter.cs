@@ -12,20 +12,30 @@ using IoTDataCollection.Collector.Protocols.Base;
 namespace IoTDataCollection.Collector.Protocols.PLC;
 
 /// <summary>
-/// PLC协议适配器
+/// PLC协议适配器基类
 /// </summary>
-public class PlcProtocolAdapter : BaseProtocolAdapter
+public abstract class PlcProtocolAdapter : BaseProtocolAdapter
 {
-    private SiemensS7Net? _plcClient;
+    protected SiemensS7Net? _plcClient;
 
-    public PlcProtocolAdapter(ILogger<PlcProtocolAdapter> logger) : base(logger)
+    protected PlcProtocolAdapter(ILogger<PlcProtocolAdapter> logger) : base(logger)
     {
     }
 
     /// <summary>
     /// 协议名称
     /// </summary>
-    public override string ProtocolName => "Siemens S7";
+    public override string ProtocolName => GetProtocolName();
+
+    /// <summary>
+    /// 获取协议名称
+    /// </summary>
+    protected abstract string GetProtocolName();
+
+    /// <summary>
+    /// 获取PLC类型
+    /// </summary>
+    protected abstract SiemensPLCS GetPlcType();
 
     /// <summary>
     /// 内部连接实现
@@ -42,7 +52,7 @@ public class PlcProtocolAdapter : BaseProtocolAdapter
             var connectionConfig = _currentConfig.ConnectionConfig;
             
             // 创建PLC客户端
-            _plcClient = new SiemensS7Net(SiemensPLCS.S1200, connectionConfig.IpAddress);
+            _plcClient = new SiemensS7Net(GetPlcType(), connectionConfig.IpAddress);
             
             // 设置连接超时
             _plcClient.ConnectTimeOut = connectionConfig.ConnectionTimeout * 1000;
@@ -52,8 +62,8 @@ public class PlcProtocolAdapter : BaseProtocolAdapter
             
             if (result.IsSuccess)
             {
-                _logger.LogInformation("PLC连接成功: {DeviceCode}, IP: {IpAddress}, Port: {Port}", 
-                    _currentConfig.DeviceCode, connectionConfig.IpAddress, connectionConfig.Port);
+                _logger.LogInformation("PLC连接成功: {DeviceCode}, IP: {IpAddress}, Port: {Port}, 型号: {PlcType}", 
+                    _currentConfig.DeviceCode, connectionConfig.IpAddress, connectionConfig.Port, GetPlcType());
                 return true;
             }
             else
@@ -152,21 +162,79 @@ public class PlcProtocolAdapter : BaseProtocolAdapter
                 return null;
             }
 
-            // 暂时返回模拟数据，实际实现需要根据HslCommunication的API调整
-            object value = config.DataType switch
-            {
-                DataType.Bool => true,
-                DataType.Int16 => (short)100,
-                DataType.Int32 => 1000,
-                DataType.Float => 25.5f,
-                DataType.String => "Test String",
-                _ => null
-            };
+            object value;
 
-            if (value == null)
+            // 根据数据类型使用HslCommunication读取数据
+            switch (config.DataType)
             {
-                _logger.LogWarning("不支持的数据类型: {DataType}, 地址: {Address}", config.DataType, address);
-                return null;
+                case DataType.Bool:
+                    var boolResult = _plcClient.ReadBool(address);
+                    if (boolResult.IsSuccess)
+                    {
+                        value = boolResult.Content;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("读取布尔值失败: {Address}, 错误: {Error}", address, boolResult.Message);
+                        return null;
+                    }
+                    break;
+
+                case DataType.Int16:
+                    var int16Result = _plcClient.ReadInt16(address);
+                    if (int16Result.IsSuccess)
+                    {
+                        value = int16Result.Content;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("读取Int16失败: {Address}, 错误: {Error}", address, int16Result.Message);
+                        return null;
+                    }
+                    break;
+
+                case DataType.Int32:
+                    var int32Result = _plcClient.ReadInt32(address);
+                    if (int32Result.IsSuccess)
+                    {
+                        value = int32Result.Content;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("读取Int32失败: {Address}, 错误: {Error}", address, int32Result.Message);
+                        return null;
+                    }
+                    break;
+
+                case DataType.Float:
+                    var floatResult = _plcClient.ReadFloat(address);
+                    if (floatResult.IsSuccess)
+                    {
+                        value = floatResult.Content;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("读取Float失败: {Address}, 错误: {Error}", address, floatResult.Message);
+                        return null;
+                    }
+                    break;
+
+                case DataType.String:
+                    var stringResult = _plcClient.ReadString(address, 50); // 读取50个字符
+                    if (stringResult.IsSuccess)
+                    {
+                        value = stringResult.Content;
+                    }
+                    else
+                    {
+                        _logger.LogWarning("读取String失败: {Address}, 错误: {Error}", address, stringResult.Message);
+                        return null;
+                    }
+                    break;
+
+                default:
+                    _logger.LogWarning("不支持的数据类型: {DataType}, 地址: {Address}", config.DataType, address);
+                    return null;
             }
 
             // 应用缩放因子和偏移量
@@ -284,4 +352,88 @@ public class PlcProtocolAdapter : BaseProtocolAdapter
             return false;
         }
     }
+}
+
+/// <summary>
+/// Siemens S7-1200 PLC适配器
+/// </summary>
+public class SiemensS7_1200Adapter : PlcProtocolAdapter
+{
+    public SiemensS7_1200Adapter(ILogger<SiemensS7_1200Adapter> logger) : base(logger)
+    {
+    }
+
+    protected override string GetProtocolName() => "Siemens S7-1200";
+
+    protected override SiemensPLCS GetPlcType() => SiemensPLCS.S1200;
+}
+
+/// <summary>
+/// Siemens S7-1500 PLC适配器
+/// </summary>
+public class SiemensS7_1500Adapter : PlcProtocolAdapter
+{
+    public SiemensS7_1500Adapter(ILogger<SiemensS7_1500Adapter> logger) : base(logger)
+    {
+    }
+
+    protected override string GetProtocolName() => "Siemens S7-1500";
+
+    protected override SiemensPLCS GetPlcType() => SiemensPLCS.S1500;
+}
+
+/// <summary>
+/// Siemens S7-200 PLC适配器
+/// </summary>
+public class SiemensS7_200Adapter : PlcProtocolAdapter
+{
+    public SiemensS7_200Adapter(ILogger<SiemensS7_200Adapter> logger) : base(logger)
+    {
+    }
+
+    protected override string GetProtocolName() => "Siemens S7-200";
+
+    protected override SiemensPLCS GetPlcType() => SiemensPLCS.S200;
+}
+
+/// <summary>
+/// Siemens S7-200Smart PLC适配器
+/// </summary>
+public class SiemensS7_200SmartAdapter : PlcProtocolAdapter
+{
+    public SiemensS7_200SmartAdapter(ILogger<SiemensS7_200SmartAdapter> logger) : base(logger)
+    {
+    }
+
+    protected override string GetProtocolName() => "Siemens S7-200Smart";
+
+    protected override SiemensPLCS GetPlcType() => SiemensPLCS.S200Smart;
+}
+
+/// <summary>
+/// Siemens S7-300 PLC适配器
+/// </summary>
+public class SiemensS7_300Adapter : PlcProtocolAdapter
+{
+    public SiemensS7_300Adapter(ILogger<SiemensS7_300Adapter> logger) : base(logger)
+    {
+    }
+
+    protected override string GetProtocolName() => "Siemens S7-300";
+
+    protected override SiemensPLCS GetPlcType() => SiemensPLCS.S300;
+}
+
+/// <summary>
+/// Siemens S7-400 PLC适配器
+/// </summary>
+public class SiemensS7_400Adapter : PlcProtocolAdapter
+{
+    public SiemensS7_400Adapter(ILogger<SiemensS7_400Adapter> logger) : base(logger)
+    {
+    }
+
+    protected override string GetProtocolName() => "Siemens S7-400";
+
+    protected override SiemensPLCS GetPlcType() => SiemensPLCS.S400;
 } 

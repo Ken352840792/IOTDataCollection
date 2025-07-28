@@ -6,6 +6,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using IoTDataCollection.Collector.Console.Services;
+using IoTDataCollection.Collector.Core.Services;
 
 namespace IoTDataCollection.Collector.Console.Services;
 
@@ -19,6 +20,7 @@ public class CollectorHostedService : BackgroundService
     private readonly CollectorConfiguration _config;
     private readonly Timer _heartbeatTimer;
     private readonly Timer _cleanupTimer;
+    private readonly Timer _configSyncTimer;
 
     public CollectorHostedService(
         ILogger<CollectorHostedService> logger,
@@ -30,6 +32,7 @@ public class CollectorHostedService : BackgroundService
         _config = config.Value;
         _heartbeatTimer = new Timer(SendHeartbeat, null, Timeout.Infinite, Timeout.Infinite);
         _cleanupTimer = new Timer(CleanupExpiredData, null, Timeout.Infinite, Timeout.Infinite);
+        _configSyncTimer = new Timer(SyncConfiguration, null, Timeout.Infinite, Timeout.Infinite);
     }
 
     /// <summary>
@@ -56,6 +59,13 @@ public class CollectorHostedService : BackgroundService
 
             // 启动清理定时器（每天执行一次）
             _cleanupTimer.Change(TimeSpan.FromMinutes(1), TimeSpan.FromHours(24));
+
+            // 启动配置同步定时器
+            if (_config.EnableConfigSync)
+            {
+                _configSyncTimer.Change(TimeSpan.Zero, TimeSpan.FromSeconds(_config.ConfigSyncIntervalSeconds));
+                _logger.LogInformation("配置同步定时器已启动，同步间隔: {Interval}秒", _config.ConfigSyncIntervalSeconds);
+            }
 
             _logger.LogInformation("采集器后台服务启动完成");
 
@@ -104,6 +114,7 @@ public class CollectorHostedService : BackgroundService
         // 停止定时器
         _heartbeatTimer?.Change(Timeout.Infinite, Timeout.Infinite);
         _cleanupTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        _configSyncTimer?.Change(Timeout.Infinite, Timeout.Infinite);
 
         await base.StopAsync(cancellationToken);
     }
@@ -115,6 +126,7 @@ public class CollectorHostedService : BackgroundService
     {
         _heartbeatTimer?.Dispose();
         _cleanupTimer?.Dispose();
+        _configSyncTimer?.Dispose();
         base.Dispose();
     }
 
@@ -151,6 +163,25 @@ public class CollectorHostedService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex, "清理过期数据失败");
+        }
+    }
+
+    /// <summary>
+    /// 同步配置
+    /// </summary>
+    private async void SyncConfiguration(object? state)
+    {
+        try
+        {
+            _logger.LogDebug("开始执行配置同步");
+            
+            using var scope = _serviceProvider.CreateScope();
+            var configurationService = scope.ServiceProvider.GetRequiredService<IConfigurationService>();
+            await configurationService.RefreshCacheAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "配置同步异常");
         }
     }
 } 

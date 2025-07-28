@@ -4,6 +4,7 @@ using IoTDataCollection.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Volo.Abp.EntityFrameworkCore;
 
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace IoTDataCollection.Migrations
 {
     [DbContext(typeof(IoTDataCollectionDbContext))]
-    partial class IoTDataCollectionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250728082529_AddCollectorNodeCodeToDevice")]
+    partial class AddCollectorNodeCodeToDevice
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -194,9 +197,8 @@ namespace IoTDataCollection.Migrations
                         .HasColumnName("F_POINT_NAME")
                         .HasComment("数据点名称 - 数据点显示名称");
 
-                    b.Property<string>("F_RegisterAddress")
-                        .HasMaxLength(100)
-                        .HasColumnType("varchar(100)")
+                    b.Property<int?>("F_RegisterAddress")
+                        .HasColumnType("int")
                         .HasColumnName("F_REGISTER_ADDRESS")
                         .HasComment("寄存器地址 - Modbus寄存器地址");
 
