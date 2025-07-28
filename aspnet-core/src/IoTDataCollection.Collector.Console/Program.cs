@@ -124,7 +124,10 @@ public class Program
         });
         
         services.AddSingleton<IConfigurationService, ConfigurationService>();
-        services.AddSingleton<ICollectorService, CollectorService>();
+        services.AddSingleton<IoTDataCollection.Collector.Core.Interfaces.ICollectorService, CollectorService>();
+        
+        // 注册系统监控服务
+        services.AddSingleton<ISystemMonitoringService, SystemMonitoringService>();
     }
 
     /// <summary>

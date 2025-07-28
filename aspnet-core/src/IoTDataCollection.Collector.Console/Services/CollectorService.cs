@@ -15,7 +15,7 @@ namespace IoTDataCollection.Collector.Console.Services;
 /// <summary>
 /// 采集服务
 /// </summary>
-public class CollectorService : ICollectorService
+public class CollectorService : IoTDataCollection.Collector.Core.Interfaces.ICollectorService
 {
     private readonly ILogger<CollectorService> _logger;
     private readonly IConfigurationService _configurationService;
@@ -23,6 +23,7 @@ public class CollectorService : ICollectorService
     private readonly ICommunicationService _communicationService;
     private readonly IRuleEngine _ruleEngine;
     private readonly IProtocolFactory _protocolFactory;
+    private readonly ISystemMonitoringService _systemMonitoringService;
     private readonly CollectorConfiguration _config;
     private readonly Dictionary<string, IDeviceProtocol> _deviceProtocols;
 
@@ -33,6 +34,7 @@ public class CollectorService : ICollectorService
         ICommunicationService communicationService,
         IRuleEngine ruleEngine,
         IProtocolFactory protocolFactory,
+        ISystemMonitoringService systemMonitoringService,
         IOptions<CollectorConfiguration> config)
     {
         _logger = logger;
@@ -41,6 +43,7 @@ public class CollectorService : ICollectorService
         _communicationService = communicationService;
         _ruleEngine = ruleEngine;
         _protocolFactory = protocolFactory;
+        _systemMonitoringService = systemMonitoringService;
         _config = config.Value;
         _deviceProtocols = new Dictionary<string, IDeviceProtocol>();
     }
@@ -295,6 +298,72 @@ public class CollectorService : ICollectorService
     }
 
     /// <summary>
+    /// 报告状态
+    /// </summary>
+    public async Task<bool> ReportStatusAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("开始报告采集端状态");
+
+            if (_communicationService == null || !_communicationService.IsConnected)
+            {
+                _logger.LogWarning("MQTT未连接，跳过状态报告");
+                return false;
+            }
+
+            // 获取系统资源信息
+            var systemResources = _systemMonitoringService.GetCurrentSystemResources();
+
+            // 构建设备连接状态
+            var deviceConnections = new Dictionary<string, bool>();
+            var deviceConfigs = await _configurationService.GetAllDeviceConfigsAsync(cancellationToken);
+            foreach (var deviceConfig in deviceConfigs)
+            {
+                if (_deviceProtocols.TryGetValue(deviceConfig.DeviceCode, out var protocol))
+                {
+                    deviceConnections[deviceConfig.DeviceCode] = protocol.IsConnected;
+                }
+                else
+                {
+                    deviceConnections[deviceConfig.DeviceCode] = false;
+                }
+            }
+
+            // 构建状态消息
+            var statusMessage = new CollectorStatusMessage
+            {
+                CollectorNode = _config.CollectorNodeCode,
+                Timestamp = DateTime.UtcNow,
+                StatusType = "Online",
+                StatusDescription = "采集端正常运行",
+                DeviceConnections = deviceConnections,
+                SystemResources = systemResources
+            };
+
+            // 发送状态消息
+            var topic = $"iot/collector/{_config.CollectorNodeCode}/status";
+            var success = await _communicationService.PublishAsync(topic, statusMessage, 1, cancellationToken);
+            
+            if (success)
+            {
+                _logger.LogDebug("状态报告发送成功: {CollectorNode}", _config.CollectorNodeCode);
+            }
+            else
+            {
+                _logger.LogWarning("状态报告发送失败: {CollectorNode}", _config.CollectorNodeCode);
+            }
+            
+            return success;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "报告状态失败");
+            return false;
+        }
+    }
+
+    /// <summary>
     /// 获取采集统计信息
     /// </summary>
     public async Task<CollectorStatistics> GetStatisticsAsync(CancellationToken cancellationToken = default)
@@ -331,6 +400,77 @@ public class CollectorService : ICollectorService
                 Timestamp = DateTime.UtcNow,
                 IsMqttConnected = _communicationService.IsConnected
             };
+        }
+    }
+
+    /// <summary>
+    /// 采集数据
+    /// </summary>
+    public async Task<bool> CollectDataAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogDebug("开始采集设备数据");
+
+            var deviceConfigs = await _configurationService.GetAllDeviceConfigsAsync(cancellationToken);
+            var enabledDevices = deviceConfigs.Where(d => d.IsEnabled).ToList();
+
+            var successCount = 0;
+            var totalCount = enabledDevices.Count;
+
+            foreach (var deviceConfig in enabledDevices)
+            {
+                try
+                {
+                    await CollectSingleDeviceDataAsync(deviceConfig, cancellationToken);
+                    successCount++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "采集设备数据失败: {DeviceCode}", deviceConfig.DeviceCode);
+                }
+            }
+
+            _logger.LogDebug("数据采集完成: {SuccessCount}/{TotalCount}", successCount, totalCount);
+            return successCount > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "采集数据失败");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 停止服务
+    /// </summary>
+    public async Task<bool> StopAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            _logger.LogInformation("停止采集服务");
+
+            // 断开所有设备连接
+            foreach (var protocol in _deviceProtocols.Values)
+            {
+                try
+                {
+                    await protocol.DisconnectAsync(cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "断开设备连接失败");
+                }
+            }
+
+            _deviceProtocols.Clear();
+            _logger.LogInformation("采集服务已停止");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "停止采集服务失败");
+            return false;
         }
     }
 
@@ -530,6 +670,16 @@ public interface ICollectorService
     Task<bool> InitializeAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// 停止服务
+    /// </summary>
+    Task<bool> StopAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 采集数据
+    /// </summary>
+    Task<bool> CollectDataAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// 采集设备数据
     /// </summary>
     Task<bool> CollectDeviceDataAsync(CancellationToken cancellationToken = default);
@@ -543,6 +693,11 @@ public interface ICollectorService
     /// 发送心跳消息
     /// </summary>
     Task<bool> SendHeartbeatAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 报告状态
+    /// </summary>
+    Task<bool> ReportStatusAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// 清理过期数据
